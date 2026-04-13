@@ -59,6 +59,331 @@ async function fetchAVDaily(symbol: string, apiKey: string): Promise<number[]> {
     .filter((v) => !isNaN(v));
 }
 
+// ===================== SEC EDGAR FORM 4 INSIDER SCRAPER =====================
+
+const SEC_HEADERS = {
+  "User-Agent": "MacroDashboard/1.0 (macro-dashboard@lovable.app)",
+  "Accept-Encoding": "gzip, deflate",
+  "Accept": "application/json, application/xml, text/xml, */*",
+};
+
+interface InsiderTransaction {
+  transactionCode: string; // P=Purchase, S=Sale, M=Exercise, G=Gift, A=Grant
+  shares: number;
+  pricePerShare: number;
+  totalValue: number;
+  acquiredOrDisposed: string; // A or D
+}
+
+interface InsiderResult {
+  totalPurchaseValue: number;
+  totalSaleValue: number;
+  purchaseCount: number;
+  saleCount: number;
+  buyRatio: number; // purchases / (purchases + sales) by value
+  filingsParsed: number;
+  score: number;
+  daysScanned: number;
+}
+
+async function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function parseForm4Xml(xml: string): InsiderTransaction[] {
+  const transactions: InsiderTransaction[] = [];
+
+  // Match both non-derivative and derivative transactions
+  // Non-derivative: <nonDerivativeTransaction>...</nonDerivativeTransaction>
+  // We parse transactionCode, shares, pricePerShare, acquiredOrDisposed
+  const txPatterns = [
+    /<nonDerivativeTransaction>([\s\S]*?)<\/nonDerivativeTransaction>/gi,
+    /<derivativeTransaction>([\s\S]*?)<\/derivativeTransaction>/gi,
+  ];
+
+  for (const pattern of txPatterns) {
+    let match;
+    while ((match = pattern.exec(xml)) !== null) {
+      const block = match[1];
+
+      // Transaction code
+      const codeMatch = block.match(/<transactionCode>(.*?)<\/transactionCode>/i);
+      const code = codeMatch?.[1]?.trim() ?? "";
+
+      // Only care about P (Purchase) and S (Sale)
+      if (code !== "P" && code !== "S") continue;
+
+      // Shares
+      const sharesMatch = block.match(
+        /<transactionShares>\s*<value>([\d.]+)<\/value>/i
+      );
+      const shares = sharesMatch ? parseFloat(sharesMatch[1]) : 0;
+
+      // Price per share
+      const priceMatch = block.match(
+        /<transactionPricePerShare>\s*<value>([\d.]+)<\/value>/i
+      );
+      const price = priceMatch ? parseFloat(priceMatch[1]) : 0;
+
+      // Acquired or Disposed
+      const adMatch = block.match(
+        /<acquiredDisposedCode>\s*<value>([AD])<\/value>/i
+      );
+      const ad = adMatch?.[1] ?? (code === "P" ? "A" : "D");
+
+      if (shares > 0) {
+        transactions.push({
+          transactionCode: code,
+          shares,
+          pricePerShare: price,
+          totalValue: shares * price,
+          acquiredOrDisposed: ad,
+        });
+      }
+    }
+  }
+
+  return transactions;
+}
+
+async function fetchEdgarInsiderActivity(): Promise<InsiderResult | null> {
+  try {
+    // Step 1: Query EDGAR EFTS full-text search for recent Form 4 filings
+    const endDate = new Date();
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - 30);
+
+    const startStr = startDate.toISOString().slice(0, 10);
+    const endStr = endDate.toISOString().slice(0, 10);
+
+    const searchUrl = `https://efts.sec.gov/LATEST/search-index?q=%22transactionCode%22&forms=4&dateRange=custom&startdt=${startStr}&enddt=${endStr}&from=0&size=40`;
+
+    console.log("EDGAR: Fetching recent Form 4 index...");
+    const searchRes = await fetch(searchUrl, { headers: SEC_HEADERS });
+
+    let filingUrls: string[] = [];
+
+    if (searchRes.ok) {
+      const searchData = await searchRes.json();
+      // EFTS returns hits with file URLs
+      if (searchData.hits?.hits) {
+        filingUrls = searchData.hits.hits
+          .map((h: any) => {
+            const fileNum = h._source?.file_num;
+            const accession = h._id?.replace(/-/g, "");
+            const path = h._source?.file_path;
+            if (path) return `https://www.sec.gov/Archives/${path}`;
+            return null;
+          })
+          .filter(Boolean)
+          .slice(0, 30);
+      }
+    }
+
+    // Fallback: use the EDGAR full-text search API (different endpoint)
+    if (filingUrls.length === 0) {
+      console.log("EDGAR: Trying EFTS search API...");
+      const eftsUrl = `https://efts.sec.gov/LATEST/search-index?q=&forms=4&dateRange=custom&startdt=${startStr}&enddt=${endStr}`;
+      const eftsRes = await fetch(eftsUrl, { headers: SEC_HEADERS });
+
+      if (!eftsRes.ok) {
+        // Try the newer EDGAR full-text search
+        console.log("EDGAR: Trying EDGAR full-text search...");
+        const ftsUrl = `https://efts.sec.gov/LATEST/search-index?q=%22Purchase%22+%22transactionCode%22&forms=4&dateRange=custom&startdt=${startStr}&enddt=${endStr}&from=0&size=40`;
+        const ftsRes = await fetch(ftsUrl, { headers: SEC_HEADERS });
+        if (ftsRes.ok) {
+          const ftsData = await ftsRes.json();
+          if (ftsData.hits?.hits) {
+            filingUrls = ftsData.hits.hits
+              .map((h: any) => h._source?.file_path ? `https://www.sec.gov/Archives/${h._source.file_path}` : null)
+              .filter(Boolean)
+              .slice(0, 30);
+          }
+        } else {
+          await ftsRes.text(); // consume body
+        }
+      } else {
+        const eftsData = await eftsRes.json();
+        if (eftsData.hits?.hits) {
+          filingUrls = eftsData.hits.hits
+            .map((h: any) => h._source?.file_path ? `https://www.sec.gov/Archives/${h._source.file_path}` : null)
+            .filter(Boolean)
+            .slice(0, 30);
+        }
+      }
+    }
+
+    // Fallback 2: Use EDGAR recent filings full-index
+    if (filingUrls.length === 0) {
+      console.log("EDGAR: Trying full-index approach...");
+      // Get today's quarter index
+      const q = Math.floor(endDate.getMonth() / 3) + 1;
+      const y = endDate.getFullYear();
+      const indexUrl = `https://www.sec.gov/Archives/edgar/full-index/${y}/QTR${q}/form.idx`;
+
+      const idxRes = await fetch(indexUrl, { headers: SEC_HEADERS });
+      if (idxRes.ok) {
+        const idxText = await idxRes.text();
+        // Parse the idx file for Form 4 entries
+        const lines = idxText.split("\n");
+        const form4Lines = lines
+          .filter((l) => /^\s*4\s/.test(l))
+          .slice(-40); // last 40 entries (most recent)
+
+        for (const line of form4Lines) {
+          // Format: FormType | Company | CIK | DateFiled | Filename
+          const parts = line.split(/\s{2,}/);
+          const filename = parts[parts.length - 1]?.trim();
+          if (filename && filename.includes("/")) {
+            filingUrls.push(`https://www.sec.gov/Archives/${filename}`);
+          }
+        }
+      } else {
+        await idxRes.text();
+      }
+    }
+
+    if (filingUrls.length === 0) {
+      console.log("EDGAR: No filing URLs found, using RSS fallback...");
+      // Final fallback: EDGAR company search RSS for recent Form 4s
+      const rssUrl = `https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&type=4&dateb=&owner=include&count=40&search_text=&action=getcompany&output=atom`;
+      const rssRes = await fetch(rssUrl, { headers: SEC_HEADERS });
+      if (rssRes.ok) {
+        const rssText = await rssRes.text();
+        // Extract filing document URLs from Atom feed
+        const linkMatches = rssText.matchAll(/<link[^>]+href="([^"]*Archives\/edgar\/data\/[^"]+)"/gi);
+        for (const m of linkMatches) {
+          filingUrls.push(m[1]);
+        }
+        filingUrls = filingUrls.slice(0, 30);
+      } else {
+        await rssRes.text();
+      }
+    }
+
+    console.log(`EDGAR: Found ${filingUrls.length} filing URLs to parse`);
+
+    if (filingUrls.length === 0) {
+      return null;
+    }
+
+    // Step 2: For index pages, we need to find the actual XML document
+    // If URL points to an index page, look for the .xml document link
+    const xmlUrls: string[] = [];
+    const batchSize = 5;
+
+    for (let i = 0; i < Math.min(filingUrls.length, 30); i += batchSize) {
+      const batch = filingUrls.slice(i, i + batchSize);
+      const results = await Promise.all(
+        batch.map(async (url) => {
+          try {
+            // If it's already an XML file, use it directly
+            if (url.endsWith(".xml")) return url;
+
+            // If it's an index page, fetch it and find the primary XML document
+            const res = await fetch(url, { headers: SEC_HEADERS });
+            if (!res.ok) { await res.text(); return null; }
+            const html = await res.text();
+
+            // Look for the primary document XML link (Form 4 XML)
+            const xmlMatch = html.match(/href="([^"]*\.xml)"/i);
+            if (xmlMatch) {
+              const xmlPath = xmlMatch[1];
+              if (xmlPath.startsWith("http")) return xmlPath;
+              // Construct absolute URL
+              const base = url.substring(0, url.lastIndexOf("/") + 1);
+              return base + xmlPath;
+            }
+            return null;
+          } catch {
+            return null;
+          }
+        })
+      );
+      xmlUrls.push(...results.filter(Boolean) as string[]);
+
+      // Respect SEC rate limit (10 req/sec)
+      if (i + batchSize < filingUrls.length) await sleep(600);
+    }
+
+    console.log(`EDGAR: Found ${xmlUrls.length} XML documents to parse`);
+
+    // Step 3: Fetch and parse Form 4 XMLs
+    let totalPurchaseValue = 0;
+    let totalSaleValue = 0;
+    let purchaseCount = 0;
+    let saleCount = 0;
+    let filingsParsed = 0;
+
+    for (let i = 0; i < xmlUrls.length; i += batchSize) {
+      const batch = xmlUrls.slice(i, i + batchSize);
+      const results = await Promise.all(
+        batch.map(async (url) => {
+          try {
+            const res = await fetch(url, { headers: SEC_HEADERS });
+            if (!res.ok) { await res.text(); return []; }
+            const xml = await res.text();
+            return parseForm4Xml(xml);
+          } catch {
+            return [];
+          }
+        })
+      );
+
+      for (const txs of results) {
+        if (txs.length > 0) filingsParsed++;
+        for (const tx of txs) {
+          if (tx.transactionCode === "P") {
+            totalPurchaseValue += tx.totalValue;
+            purchaseCount++;
+          } else if (tx.transactionCode === "S") {
+            totalSaleValue += tx.totalValue;
+            saleCount++;
+          }
+        }
+      }
+
+      if (i + batchSize < xmlUrls.length) await sleep(600);
+    }
+
+    const totalValue = totalPurchaseValue + totalSaleValue;
+    const buyRatio = totalValue > 0 ? totalPurchaseValue / totalValue : 0.5;
+
+    // Score: High buy ratio = insiders buying = bullish
+    // > 0.35 buy ratio is notable (normally insiders sell more than buy)
+    let score: number;
+    if (buyRatio > 0.35) score = 1;       // Unusual buying
+    else if (buyRatio >= 0.15) score = 0;  // Normal range
+    else score = -1;                       // Heavy selling
+
+    const result: InsiderResult = {
+      totalPurchaseValue: Math.round(totalPurchaseValue),
+      totalSaleValue: Math.round(totalSaleValue),
+      purchaseCount,
+      saleCount,
+      buyRatio: Math.round(buyRatio * 1000) / 1000,
+      filingsParsed,
+      score,
+      daysScanned: 30,
+    };
+
+    console.log(`EDGAR: Parsed ${filingsParsed} filings. Purchases: ${purchaseCount} ($${Math.round(totalPurchaseValue/1000)}k), Sales: ${saleCount} ($${Math.round(totalSaleValue/1000)}k), Buy ratio: ${buyRatio.toFixed(3)}, Score: ${score}`);
+
+    return result;
+  } catch (error) {
+    console.error("EDGAR scraper error:", error);
+    return null;
+  }
+}
+
+function scoreInsider(buyRatio: number): number {
+  if (buyRatio > 0.35) return 1;
+  if (buyRatio >= 0.15) return 0;
+  return -1;
+}
+
+// ===================== END EDGAR SCRAPER =====================
+
 // Scoring functions
 function scoreVIX(v: number) { return v < 15 ? 1 : v <= 25 ? 0 : -1; }
 function scoreYieldCurve(s: number) { return s > 0.2 ? 1 : s >= -0.1 ? 0 : -1; }
@@ -76,13 +401,10 @@ function scoreDXY(current: number, previous: number) {
   return changePct < -0.5 ? 1 : changePct <= 0.5 ? 0 : -1;
 }
 function scoreBreadth(rspReturnPct: number, spyReturnPct: number): number {
-  // RSP vs SPY relative performance over ~50 days
-  // RSP outperforming = broad participation = bullish breadth
-  // SPY outperforming = narrow leadership = bearish breadth
   const spread = rspReturnPct - spyReturnPct;
-  if (spread > 1) return 1;   // RSP outperforming by >1% = broad breadth
-  if (spread >= -1) return 0;  // roughly in line
-  return -1;                   // SPY leading by >1% = narrow breadth
+  if (spread > 1) return 1;
+  if (spread >= -1) return 0;
+  return -1;
 }
 function scoreSeasonality(): number {
   const month = new Date().getMonth();
