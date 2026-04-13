@@ -125,6 +125,19 @@ export function applyLiveData(signals: MacroSignal[], data: MacroAPIResponse): M
           };
         }
         return s;
+      case "insider":
+        if (data.insider) {
+          const score = data.insider.score as SignalScore;
+          const buyPct = Math.round(data.insider.buyRatio * 100);
+          const purchaseM = (data.insider.totalPurchaseValue / 1_000_000).toFixed(1);
+          const saleM = (data.insider.totalSaleValue / 1_000_000).toFixed(1);
+          return { ...s, value: `${buyPct}% buys`, score, description: `SEC Form 4 insider activity (${data.insider.daysScanned}d): ${data.insider.purchaseCount} purchases ($${purchaseM}M) vs ${data.insider.saleCount} sales ($${saleM}M). Buy ratio: ${buyPct}%. ${score === 1 ? "Unusual insider buying — bullish signal." : score === 0 ? "Normal buy/sell mix." : "Heavy insider selling — bearish signal."}`,
+            bullishCondition: "> 35% buy ratio",
+            neutralCondition: "15–35%",
+            bearishCondition: "< 15% buy ratio",
+          };
+        }
+        return s;
       default:
         return s;
     }
