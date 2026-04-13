@@ -539,7 +539,7 @@ Deno.serve(async (req) => {
       fredYieldSpread, fredCreditSpread, fredOil,
       fredVIX, fredPMI, fredSentiment, fredDXY,
       rspPrices, spyPrices,
-      insiderData,
+      insiderData, earningsData,
     ] = await Promise.all([
       fetchFRED("T10Y2Y", fredKey).catch(() => null),
       fetchFRED("BAMLH0A0HYM2", fredKey).catch(() => null),
@@ -551,6 +551,7 @@ Deno.serve(async (req) => {
       avKey ? fetchAVDaily("RSP", avKey).catch(() => []) : Promise.resolve([]),
       avKey ? fetchAVDaily("SPY", avKey).catch(() => []) : Promise.resolve([]),
       fetchEdgarInsiderActivity().catch(() => null),
+      fetchEdgarEarningsRevisions().catch(() => null),
     ]);
 
     // M2 YoY calculation
