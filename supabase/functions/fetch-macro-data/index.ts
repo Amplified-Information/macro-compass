@@ -49,9 +49,17 @@ async function fetchAVDaily(symbol: string, apiKey: string): Promise<number[]> {
   url.searchParams.set("apikey", apiKey);
   const res = await fetch(url.toString());
   if (!res.ok) throw new Error(`AV API error for ${symbol}: ${res.status}`);
-  const data: AVTimeSeriesDaily = await res.json();
-  const ts = data["Time Series (Daily)"];
-  if (!ts) return [];
+  const data = await res.json();
+  // AV rate limit returns a "Note" or "Information" key
+  if (data["Note"] || data["Information"]) {
+    console.warn(`AV rate limited for ${symbol}:`, data["Note"] || data["Information"]);
+    return [];
+  }
+  const ts = (data as AVTimeSeriesDaily)["Time Series (Daily)"];
+  if (!ts) {
+    console.warn(`AV no time series data for ${symbol}. Keys:`, Object.keys(data).slice(0, 5));
+    return [];
+  }
   // Return closes sorted newest first
   return Object.keys(ts)
     .sort((a, b) => b.localeCompare(a))
@@ -436,7 +444,8 @@ function scoreYieldCurve(s: number) { return s > 0.2 ? 1 : s >= -0.1 ? 0 : -1; }
 function scoreCreditSpread(bps: number) { return bps < 350 ? 1 : bps <= 500 ? 0 : -1; }
 function scoreM2(yoy: number) { return yoy > 2 ? 1 : yoy >= -1 ? 0 : -1; }
 function scoreOil(v: number) { return v < 85 ? 1 : v <= 100 ? 0 : -1; }
-function scorePMI(v: number) { return v > 52 ? 1 : v >= 48 ? 0 : -1; }
+// CFNAI: > 0 = above-trend growth, < -0.7 = recession territory
+function scoreCFNAI(v: number) { return v > 0 ? 1 : v >= -0.7 ? 0 : -1; }
 function scoreSentiment(v: number) {
   if (v < 60) return 1;
   if (v > 100) return -1;
@@ -545,11 +554,11 @@ Deno.serve(async (req) => {
       fetchFRED("BAMLH0A0HYM2", fredKey).catch(() => null),
       fetchFRED("DCOILWTICO", fredKey).catch(() => null),
       fetchFRED("VIXCLS", fredKey).catch(() => null),
-      fetchFRED("NAPM", fredKey).catch(() => null),
+      fetchFRED("CFNAI", fredKey).catch((e) => { console.error("CFNAI fetch error:", e); return null; }),
       fetchFRED("UMCSENT", fredKey).catch(() => null),
       fetchFREDSeries("DTWEXBGS", fredKey, 30).catch(() => []),
-      avKey ? fetchAVDaily("RSP", avKey).catch(() => []) : Promise.resolve([]),
-      avKey ? fetchAVDaily("SPY", avKey).catch(() => []) : Promise.resolve([]),
+      avKey ? fetchAVDaily("RSP", avKey).catch((e) => { console.error("AV RSP error:", e); return []; }) : Promise.resolve([]),
+      avKey ? fetchAVDaily("SPY", avKey).catch((e) => { console.error("AV SPY error:", e); return []; }) : Promise.resolve([]),
       fetchEdgarInsiderActivity().catch(() => null),
       fetchEdgarEarningsRevisions().catch(() => null),
     ]);
@@ -572,7 +581,8 @@ Deno.serve(async (req) => {
     const yieldSpread = fredYieldSpread ? parseFloat(fredYieldSpread) : null;
     const creditSpreadVal = fredCreditSpread ? parseFloat(fredCreditSpread) : null;
     const oilPrice = fredOil ? parseFloat(fredOil) : null;
-    const pmiValue = fredPMI ? parseFloat(fredPMI) : null;
+    const cfnaiValue = fredPMI ? parseFloat(fredPMI) : null;
+    console.log("CFNAI raw value:", fredPMI, "parsed:", cfnaiValue);
     const sentimentValue = fredSentiment ? parseFloat(fredSentiment) : null;
 
     // DXY direction
@@ -588,6 +598,7 @@ Deno.serve(async (req) => {
     let breadthData: { rspReturn: number; spyReturn: number; spread: number; score: number } | null = null;
     const rsp = rspPrices as number[];
     const spy = spyPrices as number[];
+    console.log(`Breadth: RSP prices=${rsp.length}, SPY prices=${spy.length}`);
     const lookback = 50;
     if (rsp.length > lookback && spy.length > lookback) {
       const rspReturn = ((rsp[0] - rsp[lookback]) / rsp[lookback]) * 100;
@@ -599,6 +610,8 @@ Deno.serve(async (req) => {
         spread: Math.round(spread * 100) / 100,
         score: scoreBreadth(rspReturn, spyReturn),
       };
+    } else if (rsp.length > 0 || spy.length > 0) {
+      console.log(`Breadth: Not enough data (need >${lookback}). RSP=${rsp.length}, SPY=${spy.length}`);
     }
 
     // Seasonality
@@ -616,7 +629,7 @@ Deno.serve(async (req) => {
         previousValue: dxyPrevious,
         changePercent: dxyPrevious && !isNaN(dxyPrevious) ? ((dxyCurrent - dxyPrevious) / dxyPrevious) * 100 : 0,
       } : null,
-      pmi: pmiValue !== null && !isNaN(pmiValue) ? { value: pmiValue } : null,
+      pmi: cfnaiValue !== null && !isNaN(cfnaiValue) ? { value: cfnaiValue, series: "CFNAI" } : null,
       sentiment: sentimentValue !== null && !isNaN(sentimentValue) ? { value: sentimentValue } : null,
       seasonality: { month: seasonLabel, score: seasonScore },
       breadth: breadthData,
@@ -637,7 +650,7 @@ Deno.serve(async (req) => {
     if (result.m2) signalScores["m2"] = scoreM2(result.m2.yoyPercent);
     if (result.oil) signalScores["oil"] = scoreOil(result.oil.value);
     if (result.dxy && dxyCurrent && dxyPrevious) signalScores["dxy"] = scoreDXY(dxyCurrent, dxyPrevious);
-    if (result.pmi) signalScores["pmi"] = scorePMI(result.pmi.value);
+    if (result.pmi) signalScores["pmi"] = scoreCFNAI(result.pmi.value);
     if (result.sentiment) signalScores["sentiment"] = scoreSentiment(result.sentiment.value);
     if (result.breadth) signalScores["breadth"] = result.breadth.score;
     signalScores["seasonality"] = seasonScore;

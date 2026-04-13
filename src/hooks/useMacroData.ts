@@ -54,7 +54,7 @@ function scoreYieldCurve(spread: number): SignalScore { return spread > 0.2 ? 1 
 function scoreCreditSpread(bps: number): SignalScore { return bps < 350 ? 1 : bps <= 500 ? 0 : -1; }
 function scoreM2(yoy: number): SignalScore { return yoy > 2 ? 1 : yoy >= -1 ? 0 : -1; }
 function scoreOil(v: number): SignalScore { return v < 85 ? 1 : v <= 100 ? 0 : -1; }
-function scorePMI(v: number): SignalScore { return v > 52 ? 1 : v >= 48 ? 0 : -1; }
+function scoreCFNAI(v: number): SignalScore { return v > 0 ? 1 : v >= -0.7 ? 0 : -1; }
 function scoreDXY(changePct: number): SignalScore { return changePct < -0.5 ? 1 : changePct <= 0.5 ? 0 : -1; }
 function scoreSentiment(v: number): SignalScore {
   if (v < 60) return 1;
@@ -106,8 +106,12 @@ export function applyLiveData(signals: MacroSignal[], data: MacroAPIResponse): M
         return s;
       case "pmi":
         if (data.pmi) {
-          const score = scorePMI(data.pmi.value);
-          return { ...s, value: data.pmi.value.toFixed(1), score, description: `ISM Manufacturing PMI at ${data.pmi.value.toFixed(1)}. ${score === 1 ? "Expansionary — economy growing." : score === 0 ? "Borderline — mixed signals." : "Contractionary — recession risk."}` };
+          const score = scoreCFNAI(data.pmi.value);
+          return { ...s, value: data.pmi.value.toFixed(2), score, description: `Chicago Fed National Activity Index at ${data.pmi.value.toFixed(2)}. ${score === 1 ? "Above-trend growth — economy expanding." : score === 0 ? "Near trend — neutral activity." : "Well below trend — recession risk."}`,
+            bullishCondition: "> 0 (above trend)",
+            neutralCondition: "0 to -0.7",
+            bearishCondition: "< -0.7 (recession)",
+          };
         }
         return s;
       case "sentiment":
