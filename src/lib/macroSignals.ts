@@ -266,14 +266,15 @@ export interface RegimeDimension {
   label: string;
   score: number;
   signalIds: string[];
+  tooltip: string;
 }
 
-const REGIME_DIMENSION_MAP: { label: string; signalIds: string[] }[] = [
-  { label: "Macro Momentum", signalIds: ["yield-curve", "pmi", "earnings"] },
-  { label: "Volatility", signalIds: ["vix"] },
-  { label: "Trend", signalIds: ["breadth", "seasonality"] },
-  { label: "Liquidity", signalIds: ["m2", "nfci", "credit-spreads"] },
-  { label: "Rates / Dollar", signalIds: ["dxy", "oil"] },
+const REGIME_DIMENSION_MAP: { label: string; signalIds: string[]; tooltip: string }[] = [
+  { label: "Macro Momentum", signalIds: ["yield-curve", "pmi", "earnings"], tooltip: "Yield Curve, PMI (CFNAI) & Earnings Revisions — tracks the direction and strength of the economic cycle." },
+  { label: "Volatility", signalIds: ["vix"], tooltip: "VIX — measures expected market volatility. Low vol = complacency / risk-on; high vol = fear / risk-off." },
+  { label: "Trend", signalIds: ["breadth", "seasonality"], tooltip: "Market Breadth & Seasonality — gauges how broad and persistent the current trend is." },
+  { label: "Liquidity", signalIds: ["m2", "nfci", "credit-spreads"], tooltip: "M2 Money Supply, NFCI & Credit Spreads — measures the availability and cost of capital in the financial system." },
+  { label: "Rates / Dollar", signalIds: ["dxy", "oil"], tooltip: "Dollar Index & Oil — tracks monetary tightening pressure and input cost headwinds." },
 ];
 
 export function computeRegimeDimensions(signals: MacroSignal[]): RegimeDimension[] {
@@ -282,7 +283,7 @@ export function computeRegimeDimensions(signals: MacroSignal[]): RegimeDimension
     const avg = matching.length > 0
       ? matching.reduce((sum, s) => sum + s.score, 0) / matching.length
       : 0;
-    return { label: dim.label, score: avg, signalIds: dim.signalIds };
+    return { label: dim.label, score: avg, signalIds: dim.signalIds, tooltip: dim.tooltip };
   });
 }
 
