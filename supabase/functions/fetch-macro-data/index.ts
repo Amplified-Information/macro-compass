@@ -436,7 +436,8 @@ function scoreYieldCurve(s: number) { return s > 0.2 ? 1 : s >= -0.1 ? 0 : -1; }
 function scoreCreditSpread(bps: number) { return bps < 350 ? 1 : bps <= 500 ? 0 : -1; }
 function scoreM2(yoy: number) { return yoy > 2 ? 1 : yoy >= -1 ? 0 : -1; }
 function scoreOil(v: number) { return v < 85 ? 1 : v <= 100 ? 0 : -1; }
-function scorePMI(v: number) { return v > 52 ? 1 : v >= 48 ? 0 : -1; }
+// CFNAI: > 0 = above-trend growth, < -0.7 = recession territory
+function scoreCFNAI(v: number) { return v > 0 ? 1 : v >= -0.7 ? 0 : -1; }
 function scoreSentiment(v: number) {
   if (v < 60) return 1;
   if (v > 100) return -1;
