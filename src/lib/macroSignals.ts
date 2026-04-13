@@ -84,6 +84,8 @@ export function getMockSignals(): MacroSignal[] {
       bullishCondition: "Positive & steepening",
       neutralCondition: "Flat",
       bearishCondition: "Inverted",
+      source: "FRED (T10Y2Y)",
+      tooltip: "The 10-Year minus 2-Year Treasury spread. An inverted curve has preceded every US recession since 1970. Steepening after inversion often signals recovery.",
     },
     {
       id: "credit-spreads",
@@ -96,6 +98,8 @@ export function getMockSignals(): MacroSignal[] {
       bullishCondition: "Tight & tightening",
       neutralCondition: "Neutral range",
       bearishCondition: "Wide & widening",
+      source: "FRED (BAMLH0A0HYM2)",
+      tooltip: "ICE BofA High Yield Option-Adjusted Spread. Measures credit risk premium investors demand over Treasuries. Tight spreads = confidence; widening = stress.",
     },
     {
       id: "breadth",
@@ -108,6 +112,8 @@ export function getMockSignals(): MacroSignal[] {
       bullishCondition: "> 60% above 200d MA",
       neutralCondition: "40–60%",
       bearishCondition: "< 40%",
+      source: "FRED (SP500 vs DJIA)",
+      tooltip: "Compares S&P 500 vs DJIA relative performance as a breadth proxy. When the broad S&P outperforms the concentrated Dow, it signals wide market participation.",
     },
     {
       id: "insider",
@@ -120,6 +126,8 @@ export function getMockSignals(): MacroSignal[] {
       bullishCondition: "Net buying",
       neutralCondition: "Mixed",
       bearishCondition: "Net selling",
+      source: "SEC EDGAR",
+      tooltip: "Aggregated Form 4 filings from SEC EDGAR. Tracks insider buy/sell ratio. Insiders buying their own stock is historically a bullish contrarian signal.",
     },
     {
       id: "m2",
@@ -132,6 +140,8 @@ export function getMockSignals(): MacroSignal[] {
       bullishCondition: "Expanding",
       neutralCondition: "Flat",
       bearishCondition: "Contracting",
+      source: "FRED (M2SL)",
+      tooltip: "M2 Money Supply year-over-year growth. Expanding money supply provides liquidity tailwinds for equities. Contraction preceded the 2022 drawdown.",
     },
 
     // Coincident (1x weight)
