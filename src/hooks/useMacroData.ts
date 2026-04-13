@@ -133,10 +133,10 @@ export function applyLiveData(signals: MacroSignal[], data: MacroAPIResponse): M
         if (data.breadth) {
           const score = data.breadth.score as SignalScore;
           const spread = data.breadth.spread > 0 ? `+${data.breadth.spread}` : `${data.breadth.spread}`;
-          return { ...s, value: `${spread}%`, score, description: `RSP vs SPY 50-day relative spread: ${spread}%. RSP ${data.breadth.rspReturn > 0 ? "+" : ""}${data.breadth.rspReturn}% vs SPY ${data.breadth.spyReturn > 0 ? "+" : ""}${data.breadth.spyReturn}%. ${score === 1 ? "Equal-weight outperforming — broad participation." : score === 0 ? "Roughly in line — neutral breadth." : "Cap-weight leading — narrow leadership, fewer stocks participating."}`,
-            bullishCondition: "RSP > SPY (broad)",
+          return { ...s, value: `${spread}%`, score, description: `Wilshire 5000 vs S&P 500 relative spread: ${spread}%. Total market ${data.breadth.totalMktReturn > 0 ? "+" : ""}${data.breadth.totalMktReturn}% vs S&P 500 ${data.breadth.sp500Return > 0 ? "+" : ""}${data.breadth.sp500Return}%. ${score === 1 ? "Total market outperforming — broad participation." : score === 0 ? "Roughly in line — neutral breadth." : "Large-cap leading — narrow leadership, fewer stocks participating."}`,
+            bullishCondition: "W5000 > SP500 (broad)",
             neutralCondition: "In line",
-            bearishCondition: "SPY > RSP (narrow)",
+            bearishCondition: "SP500 > W5000 (narrow)",
           };
         }
         return s;
