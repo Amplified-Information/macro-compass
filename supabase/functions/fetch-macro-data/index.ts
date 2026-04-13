@@ -49,9 +49,17 @@ async function fetchAVDaily(symbol: string, apiKey: string): Promise<number[]> {
   url.searchParams.set("apikey", apiKey);
   const res = await fetch(url.toString());
   if (!res.ok) throw new Error(`AV API error for ${symbol}: ${res.status}`);
-  const data: AVTimeSeriesDaily = await res.json();
-  const ts = data["Time Series (Daily)"];
-  if (!ts) return [];
+  const data = await res.json();
+  // AV rate limit returns a "Note" or "Information" key
+  if (data["Note"] || data["Information"]) {
+    console.warn(`AV rate limited for ${symbol}:`, data["Note"] || data["Information"]);
+    return [];
+  }
+  const ts = (data as AVTimeSeriesDaily)["Time Series (Daily)"];
+  if (!ts) {
+    console.warn(`AV no time series data for ${symbol}. Keys:`, Object.keys(data).slice(0, 5));
+    return [];
+  }
   // Return closes sorted newest first
   return Object.keys(ts)
     .sort((a, b) => b.localeCompare(a))
