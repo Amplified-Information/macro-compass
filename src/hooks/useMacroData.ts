@@ -108,12 +108,6 @@ export function useMacroData() {
   const { data: historyData } = useQuery<{ snapshots: MacroSnapshot[] }>({
     queryKey: ["macro-history"],
     queryFn: async () => {
-      const { data, error } = await supabase.functions.invoke("fetch-macro-data", {
-        body: null,
-        headers: {},
-      });
-      // Use query params via direct fetch
-      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
       const url = import.meta.env.VITE_SUPABASE_URL;
       const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
       
