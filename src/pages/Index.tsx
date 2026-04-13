@@ -44,6 +44,9 @@ export default function Index() {
           </div>
         </div>
 
+        {/* Regime Map */}
+        <RegimeMap result={result} />
+
         {/* CAPE Dampener */}
         <CapeDampener />
 
