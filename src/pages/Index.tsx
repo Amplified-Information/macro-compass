@@ -1,5 +1,6 @@
 import { useMemo } from "react";
-import { getMockSignals, computeComposite, CAPE_ELEVATED, SignalCategory } from "@/lib/macroSignals";
+import { computeComposite, CAPE_ELEVATED, SignalCategory } from "@/lib/macroSignals";
+import { useMacroData } from "@/hooks/useMacroData";
 import { CompositeGauge } from "@/components/CompositeGauge";
 import { SignalGroup } from "@/components/SignalGroup";
 import { ScoreBreakdown } from "@/components/ScoreBreakdown";
@@ -7,12 +8,12 @@ import { CapeDampener } from "@/components/CapeDampener";
 import { RegimeMap } from "@/components/RegimeMap";
 import { CategoryRadar } from "@/components/CategoryRadar";
 import { DeploymentSparkline } from "@/components/DeploymentSparkline";
-import { Activity } from "lucide-react";
+import { Activity, Wifi, WifiOff } from "lucide-react";
 
 const CATEGORIES: SignalCategory[] = ["leading", "coincident", "sentiment"];
 
 export default function Index() {
-  const signals = useMemo(() => getMockSignals(), []);
+  const { signals, isLoading, isLive, fetchedAt } = useMacroData();
   const result = useMemo(() => computeComposite(signals, CAPE_ELEVATED), [signals]);
 
   return (
@@ -29,19 +30,30 @@ export default function Index() {
               <p className="text-xs text-muted-foreground">Weighted composite signal · Risk regime detector</p>
             </div>
           </div>
-          <div className="text-xs text-muted-foreground font-mono">
-            Last updated: {new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+          <div className="flex items-center gap-3">
+            <div className={`flex items-center gap-1.5 text-xs font-mono px-2 py-1 rounded-full border ${
+              isLive ? "border-signal-bullish/30 text-signal-bullish bg-signal-bullish/10" :
+              isLoading ? "border-signal-neutral/30 text-signal-neutral bg-signal-neutral/10" :
+              "border-border text-muted-foreground"
+            }`}>
+              {isLive ? <Wifi className="h-3 w-3" /> : <WifiOff className="h-3 w-3" />}
+              {isLoading ? "Fetching…" : isLive ? "Live" : "Mock data"}
+            </div>
+            <div className="text-xs text-muted-foreground font-mono">
+              {fetchedAt
+                ? new Date(fetchedAt).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })
+                : new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+            </div>
           </div>
         </div>
       </header>
 
       <main className="container max-w-7xl mx-auto px-4 py-6 space-y-6">
-        {/* CAPE Banner — top priority override */}
+        {/* CAPE Banner */}
         <CapeDampener />
 
         {/* Two-column: Verdict (left) | Evidence (right) */}
         <div className="grid gap-6 lg:grid-cols-5">
-          {/* Left: Gauge + Radar + Sparkline */}
           <div className="lg:col-span-3 space-y-6">
             <CompositeGauge result={result} />
             <div className="grid gap-6 sm:grid-cols-2">
@@ -49,7 +61,6 @@ export default function Index() {
               <DeploymentSparkline result={result} />
             </div>
           </div>
-          {/* Right: Breakdown */}
           <div className="lg:col-span-2">
             <ScoreBreakdown signals={signals} result={result} />
           </div>
