@@ -149,6 +149,17 @@ export function applyLiveData(signals: MacroSignal[], data: MacroAPIResponse): M
           };
         }
         return s;
+      case "earnings":
+        if (data.earnings) {
+          const score = data.earnings.score as SignalScore;
+          const improvPct = Math.round(data.earnings.improvingRatio * 100);
+          return { ...s, value: `${improvPct}% improving`, score, description: `XBRL EPS trends across ${data.earnings.companiesAnalyzed} large-caps: ${data.earnings.epsImprovingCount} improving, ${data.earnings.epsDecliningCount} declining, ${data.earnings.epsStableCount} stable. ${data.earnings.recentEarnings8K} earnings 8-Ks filed in last 30d. ${score === 1 ? "Majority of earnings improving — bullish revision momentum." : score === 0 ? "Mixed earnings trends." : "Majority declining — bearish revision momentum."}`,
+            bullishCondition: "> 50% improving",
+            neutralCondition: "Mixed",
+            bearishCondition: "> 50% declining",
+          };
+        }
+        return s;
       default:
         return s;
     }
