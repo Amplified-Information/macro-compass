@@ -573,7 +573,8 @@ Deno.serve(async (req) => {
     const yieldSpread = fredYieldSpread ? parseFloat(fredYieldSpread) : null;
     const creditSpreadVal = fredCreditSpread ? parseFloat(fredCreditSpread) : null;
     const oilPrice = fredOil ? parseFloat(fredOil) : null;
-    const pmiValue = fredPMI ? parseFloat(fredPMI) : null;
+    const cfnaiValue = fredPMI ? parseFloat(fredPMI) : null;
+    console.log("CFNAI raw value:", fredPMI, "parsed:", cfnaiValue);
     const sentimentValue = fredSentiment ? parseFloat(fredSentiment) : null;
 
     // DXY direction
