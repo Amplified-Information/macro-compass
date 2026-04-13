@@ -573,15 +573,17 @@ Deno.serve(async (req) => {
       sentiment: sentimentValue !== null && !isNaN(sentimentValue) ? { value: sentimentValue } : null,
       seasonality: { month: seasonLabel, score: seasonScore },
       breadth: breadthData,
+      insider: insiderData as InsiderResult | null,
       fetchedAt: new Date().toISOString(),
     };
 
     // Compute signal scores
     const signalScores: Record<string, number> = {
       // Still mock (no free public API):
-      "insider": 0,
       "earnings": 1,
     };
+    if (insiderData) signalScores["insider"] = insiderData.score;
+    else signalScores["insider"] = 0;
     if (result.vix) signalScores["vix"] = scoreVIX(result.vix.value);
     if (result.yieldCurve) signalScores["yield-curve"] = scoreYieldCurve(result.yieldCurve.spread);
     if (result.creditSpread) signalScores["credit-spreads"] = scoreCreditSpread(result.creditSpread.bps);
