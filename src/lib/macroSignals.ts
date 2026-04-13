@@ -13,6 +13,8 @@ export interface MacroSignal {
   bullishCondition: string;
   neutralCondition: string;
   bearishCondition: string;
+  source?: string;
+  tooltip?: string;
 }
 
 export interface CompositeResult {
