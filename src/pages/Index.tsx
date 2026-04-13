@@ -4,6 +4,7 @@ import { CompositeGauge } from "@/components/CompositeGauge";
 import { SignalGroup } from "@/components/SignalGroup";
 import { ScoreBreakdown } from "@/components/ScoreBreakdown";
 import { CapeDampener } from "@/components/CapeDampener";
+import { RegimeMap } from "@/components/RegimeMap";
 import { Activity } from "lucide-react";
 
 const CATEGORIES: SignalCategory[] = ["leading", "coincident", "sentiment"];
