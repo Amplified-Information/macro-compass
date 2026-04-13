@@ -13,6 +13,7 @@ export interface MacroAPIResponse {
   pmi: { value: number } | null;
   sentiment: { value: number } | null;
   seasonality: { month: string; score: number } | null;
+  breadth: { rspReturn: number; spyReturn: number; spread: number; score: number } | null;
   fetchedAt: string;
 }
 
@@ -99,6 +100,17 @@ export function applyLiveData(signals: MacroSignal[], data: MacroAPIResponse): M
       case "seasonality":
         if (data.seasonality) {
           return { ...s, value: data.seasonality.month, score: data.seasonality.score as SignalScore, description: `Currently in ${data.seasonality.month}. ${data.seasonality.score === 1 ? "Historically favourable seasonal window (Nov–Apr)." : data.seasonality.score === -1 ? "Historically weak period (Sep–Oct)." : "Transitional seasonal period (May–Aug)."}` };
+        }
+        return s;
+      case "breadth":
+        if (data.breadth) {
+          const score = data.breadth.score as SignalScore;
+          const spread = data.breadth.spread > 0 ? `+${data.breadth.spread}` : `${data.breadth.spread}`;
+          return { ...s, value: `${spread}%`, score, description: `RSP vs SPY 50-day relative spread: ${spread}%. RSP ${data.breadth.rspReturn > 0 ? "+" : ""}${data.breadth.rspReturn}% vs SPY ${data.breadth.spyReturn > 0 ? "+" : ""}${data.breadth.spyReturn}%. ${score === 1 ? "Equal-weight outperforming — broad participation." : score === 0 ? "Roughly in line — neutral breadth." : "Cap-weight leading — narrow leadership, fewer stocks participating."}`,
+            bullishCondition: "RSP > SPY (broad)",
+            neutralCondition: "In line",
+            bearishCondition: "SPY > RSP (narrow)",
+          };
         }
         return s;
       default:

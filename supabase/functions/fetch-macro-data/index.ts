@@ -3,10 +3,15 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+const AV_BASE = "https://www.alphavantage.co/query";
 const FRED_BASE = "https://api.stlouisfed.org/fred/series/observations";
 
 interface FREDResponse {
   observations?: Array<{ date: string; value: string }>;
+}
+
+interface AVTimeSeriesDaily {
+  "Time Series (Daily)"?: Record<string, { "4. close": string }>;
 }
 
 async function fetchFRED(seriesId: string, apiKey: string): Promise<string | null> {
@@ -36,6 +41,24 @@ async function fetchFREDSeries(seriesId: string, apiKey: string, limit: number):
   return data.observations?.filter((o) => o.value !== ".") ?? [];
 }
 
+async function fetchAVDaily(symbol: string, apiKey: string): Promise<number[]> {
+  const url = new URL(AV_BASE);
+  url.searchParams.set("function", "TIME_SERIES_DAILY");
+  url.searchParams.set("symbol", symbol);
+  url.searchParams.set("outputsize", "compact"); // last 100 days
+  url.searchParams.set("apikey", apiKey);
+  const res = await fetch(url.toString());
+  if (!res.ok) throw new Error(`AV API error for ${symbol}: ${res.status}`);
+  const data: AVTimeSeriesDaily = await res.json();
+  const ts = data["Time Series (Daily)"];
+  if (!ts) return [];
+  // Return closes sorted newest first
+  return Object.keys(ts)
+    .sort((a, b) => b.localeCompare(a))
+    .map((d) => parseFloat(ts[d]["4. close"]))
+    .filter((v) => !isNaN(v));
+}
+
 // Scoring functions
 function scoreVIX(v: number) { return v < 15 ? 1 : v <= 25 ? 0 : -1; }
 function scoreYieldCurve(s: number) { return s > 0.2 ? 1 : s >= -0.1 ? 0 : -1; }
@@ -44,27 +67,32 @@ function scoreM2(yoy: number) { return yoy > 2 ? 1 : yoy >= -1 ? 0 : -1; }
 function scoreOil(v: number) { return v < 85 ? 1 : v <= 100 ? 0 : -1; }
 function scorePMI(v: number) { return v > 52 ? 1 : v >= 48 ? 0 : -1; }
 function scoreSentiment(v: number) {
-  // U Michigan Sentiment — contrarian: extreme low (<60) is bullish, extreme high (>100) is bearish
-  if (v < 60) return 1;  // extreme pessimism = contrarian bullish
-  if (v > 100) return -1; // extreme optimism = contrarian bearish
+  if (v < 60) return 1;
+  if (v > 100) return -1;
   return 0;
 }
 function scoreDXY(current: number, previous: number) {
-  // Dollar: weakening = bullish for risk, strengthening = bearish
   const changePct = previous > 0 ? ((current - previous) / previous) * 100 : 0;
   return changePct < -0.5 ? 1 : changePct <= 0.5 ? 0 : -1;
 }
+function scoreBreadth(rspReturnPct: number, spyReturnPct: number): number {
+  // RSP vs SPY relative performance over ~50 days
+  // RSP outperforming = broad participation = bullish breadth
+  // SPY outperforming = narrow leadership = bearish breadth
+  const spread = rspReturnPct - spyReturnPct;
+  if (spread > 1) return 1;   // RSP outperforming by >1% = broad breadth
+  if (spread >= -1) return 0;  // roughly in line
+  return -1;                   // SPY leading by >1% = narrow breadth
+}
 function scoreSeasonality(): number {
-  // Bullish: Nov–Apr, Bearish: Sep–Oct, Neutral: May–Aug
-  const month = new Date().getMonth(); // 0-indexed
-  if (month >= 10 || month <= 3) return 1;  // Nov–Apr
-  if (month === 8 || month === 9) return -1; // Sep–Oct
-  return 0; // May–Aug
+  const month = new Date().getMonth();
+  if (month >= 10 || month <= 3) return 1;
+  if (month === 8 || month === 9) return -1;
+  return 0;
 }
 function getSeasonLabel(): string {
   const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-  const m = new Date().getMonth();
-  return months[m];
+  return months[new Date().getMonth()];
 }
 
 function computeComposite(signals: Record<string, number>): { score: number; regime: string } {
@@ -129,6 +157,8 @@ Deno.serve(async (req) => {
 
   // Default: fetch fresh data
   const fredKey = Deno.env.get("FRED_API_KEY");
+  const avKey = Deno.env.get("ALPHA_VANTAGE_API_KEY");
+
   if (!fredKey) {
     return new Response(JSON.stringify({ error: "FRED_API_KEY not configured" }), {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -136,18 +166,22 @@ Deno.serve(async (req) => {
   }
 
   try {
-    // All FRED fetches in parallel
+    // All fetches in parallel
     const [
       fredYieldSpread, fredCreditSpread, fredOil,
       fredVIX, fredPMI, fredSentiment, fredDXY,
+      rspPrices, spyPrices,
     ] = await Promise.all([
-      fetchFRED("T10Y2Y", fredKey).catch(() => null),       // Yield curve 2s10s
-      fetchFRED("BAMLH0A0HYM2", fredKey).catch(() => null),  // HY OAS spread
-      fetchFRED("DCOILWTICO", fredKey).catch(() => null),     // WTI crude
-      fetchFRED("VIXCLS", fredKey).catch(() => null),         // VIX
-      fetchFRED("NAPM", fredKey).catch(() => null),           // ISM Manufacturing PMI
-      fetchFRED("UMCSENT", fredKey).catch(() => null),        // U Michigan Consumer Sentiment
-      fetchFREDSeries("DTWEXBGS", fredKey, 30).catch(() => []),// Trade-weighted dollar (need 2 values for direction)
+      fetchFRED("T10Y2Y", fredKey).catch(() => null),
+      fetchFRED("BAMLH0A0HYM2", fredKey).catch(() => null),
+      fetchFRED("DCOILWTICO", fredKey).catch(() => null),
+      fetchFRED("VIXCLS", fredKey).catch(() => null),
+      fetchFRED("NAPM", fredKey).catch(() => null),
+      fetchFRED("UMCSENT", fredKey).catch(() => null),
+      fetchFREDSeries("DTWEXBGS", fredKey, 30).catch(() => []),
+      // Breadth proxy: RSP (equal-weight S&P 500) vs SPY (cap-weight)
+      avKey ? fetchAVDaily("RSP", avKey).catch(() => []) : Promise.resolve([]),
+      avKey ? fetchAVDaily("SPY", avKey).catch(() => []) : Promise.resolve([]),
     ]);
 
     // M2 YoY calculation
@@ -171,7 +205,7 @@ Deno.serve(async (req) => {
     const pmiValue = fredPMI ? parseFloat(fredPMI) : null;
     const sentimentValue = fredSentiment ? parseFloat(fredSentiment) : null;
 
-    // DXY: need current and previous to compute direction
+    // DXY direction
     const dxyObs = fredDXY as Array<{ date: string; value: string }>;
     let dxyCurrent: number | null = null;
     let dxyPrevious: number | null = null;
@@ -180,7 +214,24 @@ Deno.serve(async (req) => {
       dxyPrevious = parseFloat(dxyObs[1].value);
     }
 
-    // Seasonality — pure computation
+    // Breadth: RSP vs SPY relative performance over ~50 trading days
+    let breadthData: { rspReturn: number; spyReturn: number; spread: number; score: number } | null = null;
+    const rsp = rspPrices as number[];
+    const spy = spyPrices as number[];
+    const lookback = 50;
+    if (rsp.length > lookback && spy.length > lookback) {
+      const rspReturn = ((rsp[0] - rsp[lookback]) / rsp[lookback]) * 100;
+      const spyReturn = ((spy[0] - spy[lookback]) / spy[lookback]) * 100;
+      const spread = rspReturn - spyReturn;
+      breadthData = {
+        rspReturn: Math.round(rspReturn * 100) / 100,
+        spyReturn: Math.round(spyReturn * 100) / 100,
+        spread: Math.round(spread * 100) / 100,
+        score: scoreBreadth(rspReturn, spyReturn),
+      };
+    }
+
+    // Seasonality
     const seasonScore = scoreSeasonality();
     const seasonLabel = getSeasonLabel();
 
@@ -198,13 +249,13 @@ Deno.serve(async (req) => {
       pmi: pmiValue !== null && !isNaN(pmiValue) ? { value: pmiValue } : null,
       sentiment: sentimentValue !== null && !isNaN(sentimentValue) ? { value: sentimentValue } : null,
       seasonality: { month: seasonLabel, score: seasonScore },
+      breadth: breadthData,
       fetchedAt: new Date().toISOString(),
     };
 
     // Compute signal scores
     const signalScores: Record<string, number> = {
       // Still mock (no free public API):
-      "breadth": 1,
       "insider": 0,
       "earnings": 1,
     };
@@ -216,6 +267,7 @@ Deno.serve(async (req) => {
     if (result.dxy && dxyCurrent && dxyPrevious) signalScores["dxy"] = scoreDXY(dxyCurrent, dxyPrevious);
     if (result.pmi) signalScores["pmi"] = scorePMI(result.pmi.value);
     if (result.sentiment) signalScores["sentiment"] = scoreSentiment(result.sentiment.value);
+    if (result.breadth) signalScores["breadth"] = result.breadth.score;
     signalScores["seasonality"] = seasonScore;
 
     const composite = computeComposite(signalScores);
