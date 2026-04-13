@@ -199,6 +199,7 @@ async function fetchEdgarInsiderActivity(): Promise<InsiderResult | null> {
     }
 
     // Step 2: Fetch and parse Form 4 XMLs in batches
+    const batchSize = 5;
     let totalPurchaseValue = 0;
     let totalSaleValue = 0;
     let purchaseCount = 0;
