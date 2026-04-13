@@ -4,6 +4,7 @@ import { CompositeGauge } from "@/components/CompositeGauge";
 import { SignalGroup } from "@/components/SignalGroup";
 import { ScoreBreakdown } from "@/components/ScoreBreakdown";
 import { CapeDampener } from "@/components/CapeDampener";
+import { RegimeMap } from "@/components/RegimeMap";
 import { Activity } from "lucide-react";
 
 const CATEGORIES: SignalCategory[] = ["leading", "coincident", "sentiment"];
@@ -42,6 +43,9 @@ export default function Index() {
             <ScoreBreakdown signals={signals} result={result} />
           </div>
         </div>
+
+        {/* Regime Map */}
+        <RegimeMap result={result} />
 
         {/* CAPE Dampener */}
         <CapeDampener />
