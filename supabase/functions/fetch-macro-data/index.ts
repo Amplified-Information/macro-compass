@@ -467,6 +467,13 @@ function scoreSeasonality(): number {
   if (month === 8 || month === 9) return -1;
   return 0;
 }
+// NFCI: positive = tightening financial conditions, negative = loose
+function scoreNFCI(v: number): number {
+  if (v < -0.5) return 1;       // Loose conditions — bullish
+  if (v <= 0) return 0;          // Neutral
+  if (v <= 0.5) return -1;       // Tightening — bearish
+  return -1;                     // Crisis-level tightening
+}
 function getSeasonLabel(): string {
   const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
   return months[new Date().getMonth()];
@@ -485,9 +492,10 @@ function computeComposite(signals: Record<string, number>): { score: number; reg
     (signals["oil"] ?? 0) * 1 +
     (signals["earnings"] ?? 0) * 1 +
     (signals["sentiment"] ?? 0) * 0.5 +
-    (signals["seasonality"] ?? 0) * 0.5;
+    (signals["seasonality"] ?? 0) * 0.5 +
+    (signals["nfci"] ?? 0) * 2;
 
-  const totalPossible = 16;
+  const totalPossible = 18;
   const normalized = Math.max(-1, Math.min(1, weighted / totalPossible));
 
   let regime = "cash";
@@ -548,7 +556,7 @@ Deno.serve(async (req) => {
       fredYieldSpread, fredCreditSpread, fredOil,
       fredVIX, fredCFNAI, fredSentiment, fredDXY,
       sp500Series, wilshire5000Series,
-      insiderData, earningsData,
+      insiderData, earningsData, fredNFCI,
     ] = await Promise.all([
       fetchFRED("T10Y2Y", fredKey).catch(() => null),
       fetchFRED("BAMLH0A0HYM2", fredKey).catch(() => null),
@@ -562,6 +570,7 @@ Deno.serve(async (req) => {
       fetchFREDSeries("DJIA", fredKey, 60).catch(() => []),
       fetchEdgarInsiderActivity().catch(() => null),
       fetchEdgarEarningsRevisions().catch(() => null),
+      fetchFRED("NFCI", fredKey).catch(() => null),
     ]);
 
     // M2 YoY calculation
@@ -584,6 +593,7 @@ Deno.serve(async (req) => {
     const oilPrice = fredOil ? parseFloat(fredOil) : null;
     const cfnaiValue = fredCFNAI ? parseFloat(fredCFNAI) : null;
     const sentimentValue = fredSentiment ? parseFloat(fredSentiment) : null;
+    const nfciValue = fredNFCI ? parseFloat(fredNFCI as string) : null;
 
     // DXY direction
     const dxyObs = fredDXY as Array<{ date: string; value: string }>;
@@ -640,6 +650,7 @@ Deno.serve(async (req) => {
       breadth: breadthData,
       insider: insiderData as InsiderResult | null,
       earnings: earningsData as EarningsResult | null,
+      nfci: nfciValue !== null && !isNaN(nfciValue) ? { value: nfciValue } : null,
       fetchedAt: new Date().toISOString(),
     };
 
@@ -659,6 +670,8 @@ Deno.serve(async (req) => {
     if (result.sentiment) signalScores["sentiment"] = scoreSentiment(result.sentiment.value);
     if (result.breadth) signalScores["breadth"] = result.breadth.score;
     signalScores["seasonality"] = seasonScore;
+    if (nfciValue !== null && !isNaN(nfciValue)) signalScores["nfci"] = scoreNFCI(nfciValue);
+    else signalScores["nfci"] = 0;
 
     const composite = computeComposite(signalScores);
 
