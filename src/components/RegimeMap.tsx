@@ -149,7 +149,7 @@ export function RegimeMap({ result, signals }: { result: CompositeResult; signal
                 className={`relative flex items-center justify-center transition-all ${c.barBg} ${isActive ? "opacity-100 ring-2 ring-foreground/30 z-10" : "opacity-30"}`}
                 style={{ width: `${widthPct}%` }}
               >
-                <span className={`text-sm font-mono font-bold text-primary-foreground truncate px-1 ${isActive ? "" : "opacity-60"}`}>
+                <span className={`text-sm font-mono font-bold text-primary-foreground truncate px-1 drop-shadow-[0_0_6px_rgba(255,255,255,0.5)] ${isActive ? "drop-shadow-[0_0_8px_rgba(255,255,255,0.7)]" : "opacity-60"}`}>
                   {regime.label}
                 </span>
               </div>
