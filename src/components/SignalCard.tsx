@@ -1,5 +1,10 @@
 import { MacroSignal, SignalScore } from "@/lib/macroSignals";
-import { TrendingUp, Minus, TrendingDown } from "lucide-react";
+import { TrendingUp, Minus, TrendingDown, Info } from "lucide-react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 const scoreConfig: Record<SignalScore, { icon: typeof TrendingUp; label: string; colorClass: string; bgClass: string; borderClass: string }> = {
   1: { icon: TrendingUp, label: "Bullish", colorClass: "text-signal-bullish", bgClass: "bg-signal-bullish/10", borderClass: "border-signal-bullish/30" },
@@ -8,7 +13,6 @@ const scoreConfig: Record<SignalScore, { icon: typeof TrendingUp; label: string;
 };
 
 function ThresholdPill({ score }: { score: SignalScore }) {
-  // Visual position: -1 = left, 0 = center, 1 = right
   const position = ((score + 1) / 2) * 100;
 
   return (
@@ -16,7 +20,6 @@ function ThresholdPill({ score }: { score: SignalScore }) {
       <div className="flex-1 bg-signal-bearish/20 rounded-l-full" />
       <div className="flex-1 bg-signal-neutral/20" />
       <div className="flex-1 bg-signal-bullish/20 rounded-r-full" />
-      {/* Dot indicator */}
       <div
         className={`absolute top-1/2 -translate-y-1/2 w-3 h-3 rounded-full border-2 border-card shadow-md transition-all duration-500 ${
           score === 1 ? "bg-signal-bullish" : score === -1 ? "bg-signal-bearish" : "bg-signal-neutral"
@@ -34,7 +37,24 @@ export function SignalCard({ signal }: { signal: MacroSignal }) {
   return (
     <div className="rounded-lg border bg-card p-4 space-y-3 transition-all hover:border-muted-foreground/20">
       <div className="flex items-center justify-between gap-2">
-        <h3 className="text-sm font-semibold text-foreground">{signal.name}</h3>
+        <div className="flex items-center gap-1.5">
+          <h3 className="text-sm font-semibold text-foreground">{signal.name}</h3>
+          {signal.tooltip && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Info className="h-3.5 w-3.5 text-muted-foreground cursor-help shrink-0" />
+              </TooltipTrigger>
+              <TooltipContent side="top" className="max-w-xs text-xs leading-relaxed">
+                <p>{signal.tooltip}</p>
+                {signal.source && (
+                  <p className="mt-1.5 text-muted-foreground font-mono text-[10px]">
+                    Source: {signal.source}
+                  </p>
+                )}
+              </TooltipContent>
+            </Tooltip>
+          )}
+        </div>
         <div className="flex items-center gap-2 shrink-0">
           <span className="text-xs text-muted-foreground font-mono">{signal.weight}×</span>
           <div className={`flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${config.bgClass} ${config.colorClass} border ${config.borderClass}`}>
@@ -50,6 +70,10 @@ export function SignalCard({ signal }: { signal: MacroSignal }) {
       <ThresholdPill score={signal.score} />
 
       <p className="text-xs text-muted-foreground leading-relaxed">{signal.description}</p>
+
+      {signal.source && (
+        <p className="text-[10px] font-mono text-muted-foreground/60">📡 {signal.source}</p>
+      )}
 
       <div className="grid grid-cols-3 gap-1 text-[10px] font-mono">
         <div className={`rounded px-1.5 py-1 text-center ${signal.score === 1 ? "bg-signal-bullish/10 text-signal-bullish border border-signal-bullish/30" : "bg-secondary text-muted-foreground"}`}>
