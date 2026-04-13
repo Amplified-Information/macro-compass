@@ -156,159 +156,49 @@ async function fetchEdgarInsiderActivity(): Promise<InsiderResult | null> {
     const startStr = startDate.toISOString().slice(0, 10);
     const endStr = endDate.toISOString().slice(0, 10);
 
-    const searchUrl = `https://efts.sec.gov/LATEST/search-index?q=%22transactionCode%22&forms=4&dateRange=custom&startdt=${startStr}&enddt=${endStr}&from=0&size=40`;
+    const searchUrl = `https://efts.sec.gov/LATEST/search-index?q=&forms=4&dateRange=custom&startdt=${startStr}&enddt=${endStr}&from=0&size=40`;
 
     console.log("EDGAR: Fetching recent Form 4 index...");
     const searchRes = await fetch(searchUrl, { headers: SEC_HEADERS });
 
-    let filingUrls: string[] = [];
+    let xmlUrls: string[] = [];
 
     if (searchRes.ok) {
       const searchData = await searchRes.json();
-      // EFTS returns hits with file URLs
       if (searchData.hits?.hits) {
-        filingUrls = searchData.hits.hits
+        xmlUrls = searchData.hits.hits
           .map((h: any) => {
-            const fileNum = h._source?.file_num;
-            const accession = h._id?.replace(/-/g, "");
-            const path = h._source?.file_path;
-            if (path) return `https://www.sec.gov/Archives/${path}`;
+            // _id format: "accession-number:filename.xml"
+            // _source.adsh: "0001452301-26-000008"
+            const adsh = h._source?.adsh;
+            const idParts = h._id?.split(":");
+            const filename = idParts?.[1];
+            if (adsh && filename) {
+              const adshPath = adsh.replace(/-/g, "");
+              // CIK from the first entry
+              const ciks = h._source?.ciks;
+              const cik = ciks?.[0];
+              if (cik) {
+                return `https://www.sec.gov/Archives/edgar/data/${parseInt(cik)}/${adshPath}/${filename}`;
+              }
+            }
             return null;
           })
           .filter(Boolean)
           .slice(0, 30);
       }
+    } else {
+      const errText = await searchRes.text();
+      console.log("EDGAR: EFTS error:", searchRes.status, errText.substring(0, 200));
     }
 
-    // Fallback: use the EDGAR full-text search API (different endpoint)
-    if (filingUrls.length === 0) {
-      console.log("EDGAR: Trying EFTS search API...");
-      const eftsUrl = `https://efts.sec.gov/LATEST/search-index?q=&forms=4&dateRange=custom&startdt=${startStr}&enddt=${endStr}`;
-      const eftsRes = await fetch(eftsUrl, { headers: SEC_HEADERS });
+    console.log(`EDGAR: Found ${xmlUrls.length} XML URLs to fetch`);
 
-      if (!eftsRes.ok) {
-        // Try the newer EDGAR full-text search
-        console.log("EDGAR: Trying EDGAR full-text search...");
-        const ftsUrl = `https://efts.sec.gov/LATEST/search-index?q=%22Purchase%22+%22transactionCode%22&forms=4&dateRange=custom&startdt=${startStr}&enddt=${endStr}&from=0&size=40`;
-        const ftsRes = await fetch(ftsUrl, { headers: SEC_HEADERS });
-        if (ftsRes.ok) {
-          const ftsData = await ftsRes.json();
-          if (ftsData.hits?.hits) {
-            filingUrls = ftsData.hits.hits
-              .map((h: any) => h._source?.file_path ? `https://www.sec.gov/Archives/${h._source.file_path}` : null)
-              .filter(Boolean)
-              .slice(0, 30);
-          }
-        } else {
-          await ftsRes.text(); // consume body
-        }
-      } else {
-        const eftsData = await eftsRes.json();
-        if (eftsData.hits?.hits) {
-          filingUrls = eftsData.hits.hits
-            .map((h: any) => h._source?.file_path ? `https://www.sec.gov/Archives/${h._source.file_path}` : null)
-            .filter(Boolean)
-            .slice(0, 30);
-        }
-      }
-    }
-
-    // Fallback 2: Use EDGAR recent filings full-index
-    if (filingUrls.length === 0) {
-      console.log("EDGAR: Trying full-index approach...");
-      // Get today's quarter index
-      const q = Math.floor(endDate.getMonth() / 3) + 1;
-      const y = endDate.getFullYear();
-      const indexUrl = `https://www.sec.gov/Archives/edgar/full-index/${y}/QTR${q}/form.idx`;
-
-      const idxRes = await fetch(indexUrl, { headers: SEC_HEADERS });
-      if (idxRes.ok) {
-        const idxText = await idxRes.text();
-        // Parse the idx file for Form 4 entries
-        const lines = idxText.split("\n");
-        const form4Lines = lines
-          .filter((l) => /^\s*4\s/.test(l))
-          .slice(-40); // last 40 entries (most recent)
-
-        for (const line of form4Lines) {
-          // Format: FormType | Company | CIK | DateFiled | Filename
-          const parts = line.split(/\s{2,}/);
-          const filename = parts[parts.length - 1]?.trim();
-          if (filename && filename.includes("/")) {
-            filingUrls.push(`https://www.sec.gov/Archives/${filename}`);
-          }
-        }
-      } else {
-        await idxRes.text();
-      }
-    }
-
-    if (filingUrls.length === 0) {
-      console.log("EDGAR: No filing URLs found, using RSS fallback...");
-      // Final fallback: EDGAR company search RSS for recent Form 4s
-      const rssUrl = `https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&type=4&dateb=&owner=include&count=40&search_text=&action=getcompany&output=atom`;
-      const rssRes = await fetch(rssUrl, { headers: SEC_HEADERS });
-      if (rssRes.ok) {
-        const rssText = await rssRes.text();
-        // Extract filing document URLs from Atom feed
-        const linkMatches = rssText.matchAll(/<link[^>]+href="([^"]*Archives\/edgar\/data\/[^"]+)"/gi);
-        for (const m of linkMatches) {
-          filingUrls.push(m[1]);
-        }
-        filingUrls = filingUrls.slice(0, 30);
-      } else {
-        await rssRes.text();
-      }
-    }
-
-    console.log(`EDGAR: Found ${filingUrls.length} filing URLs to parse`);
-
-    if (filingUrls.length === 0) {
+    if (xmlUrls.length === 0) {
       return null;
     }
 
-    // Step 2: For index pages, we need to find the actual XML document
-    // If URL points to an index page, look for the .xml document link
-    const xmlUrls: string[] = [];
-    const batchSize = 5;
-
-    for (let i = 0; i < Math.min(filingUrls.length, 30); i += batchSize) {
-      const batch = filingUrls.slice(i, i + batchSize);
-      const results = await Promise.all(
-        batch.map(async (url) => {
-          try {
-            // If it's already an XML file, use it directly
-            if (url.endsWith(".xml")) return url;
-
-            // If it's an index page, fetch it and find the primary XML document
-            const res = await fetch(url, { headers: SEC_HEADERS });
-            if (!res.ok) { await res.text(); return null; }
-            const html = await res.text();
-
-            // Look for the primary document XML link (Form 4 XML)
-            const xmlMatch = html.match(/href="([^"]*\.xml)"/i);
-            if (xmlMatch) {
-              const xmlPath = xmlMatch[1];
-              if (xmlPath.startsWith("http")) return xmlPath;
-              // Construct absolute URL
-              const base = url.substring(0, url.lastIndexOf("/") + 1);
-              return base + xmlPath;
-            }
-            return null;
-          } catch {
-            return null;
-          }
-        })
-      );
-      xmlUrls.push(...results.filter(Boolean) as string[]);
-
-      // Respect SEC rate limit (10 req/sec)
-      if (i + batchSize < filingUrls.length) await sleep(600);
-    }
-
-    console.log(`EDGAR: Found ${xmlUrls.length} XML documents to parse`);
-
-    // Step 3: Fetch and parse Form 4 XMLs
+    // Step 2: Fetch and parse Form 4 XMLs in batches
     let totalPurchaseValue = 0;
     let totalSaleValue = 0;
     let purchaseCount = 0;
