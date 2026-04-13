@@ -136,8 +136,8 @@ export function RegimeMap({ result, signals }: { result: CompositeResult; signal
       </div>
 
       {/* Spectrum bar */}
-      <div className="space-y-2">
-        <div className="relative h-8 rounded-lg overflow-hidden flex">
+      <div className="space-y-1">
+        <div className="relative h-10 rounded-lg overflow-hidden flex mt-6">
           {REGIMES.slice().reverse().map((regime, i) => {
             const realIdx = REGIMES.length - 1 - i;
             const isActive = realIdx === activeIdx;
@@ -149,7 +149,7 @@ export function RegimeMap({ result, signals }: { result: CompositeResult; signal
                 className={`relative flex items-center justify-center transition-all ${c.barBg} ${isActive ? "opacity-100 ring-2 ring-foreground/30 z-10" : "opacity-30"}`}
                 style={{ width: `${widthPct}%` }}
               >
-                <span className={`text-[9px] font-mono font-bold text-primary-foreground ${isActive ? "" : "opacity-60"}`}>
+                <span className={`text-[11px] font-mono font-bold text-primary-foreground truncate px-1 ${isActive ? "" : "opacity-60"}`}>
                   {regime.label}
                 </span>
               </div>
@@ -160,12 +160,12 @@ export function RegimeMap({ result, signals }: { result: CompositeResult; signal
             className="absolute top-0 bottom-0 w-0.5 bg-foreground z-20 transition-all duration-700"
             style={{ left: `${((result.finalScore + 1) / 2) * 100}%` }}
           >
-            <div className="absolute -top-5 left-1/2 -translate-x-1/2 text-[10px] font-mono font-bold text-foreground whitespace-nowrap">
+            <div className="absolute -top-6 left-1/2 -translate-x-1/2 text-xs font-mono font-bold text-foreground whitespace-nowrap bg-card px-1.5 py-0.5 rounded border border-border">
               {result.finalScore > 0 ? "+" : ""}{result.finalScore.toFixed(2)}
             </div>
           </div>
         </div>
-        <div className="flex justify-between text-[10px] text-muted-foreground font-mono">
+        <div className="flex justify-between text-[11px] text-muted-foreground font-mono px-1">
           <span>-1.00 Crisis</span>
           <span>0.00 Neutral</span>
           <span>+1.00 Risk-On</span>
