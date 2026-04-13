@@ -54,7 +54,7 @@ function scoreYieldCurve(spread: number): SignalScore { return spread > 0.2 ? 1 
 function scoreCreditSpread(bps: number): SignalScore { return bps < 350 ? 1 : bps <= 500 ? 0 : -1; }
 function scoreM2(yoy: number): SignalScore { return yoy > 2 ? 1 : yoy >= -1 ? 0 : -1; }
 function scoreOil(v: number): SignalScore { return v < 85 ? 1 : v <= 100 ? 0 : -1; }
-function scorePMI(v: number): SignalScore { return v > 52 ? 1 : v >= 48 ? 0 : -1; }
+function scoreCFNAI(v: number): SignalScore { return v > 0 ? 1 : v >= -0.7 ? 0 : -1; }
 function scoreDXY(changePct: number): SignalScore { return changePct < -0.5 ? 1 : changePct <= 0.5 ? 0 : -1; }
 function scoreSentiment(v: number): SignalScore {
   if (v < 60) return 1;
