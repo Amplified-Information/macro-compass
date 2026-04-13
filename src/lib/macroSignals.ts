@@ -156,6 +156,8 @@ export function getMockSignals(): MacroSignal[] {
       bullishCondition: "< 15",
       neutralCondition: "15–25",
       bearishCondition: "> 25",
+      source: "FRED (VIXCLS)",
+      tooltip: "CBOE Volatility Index — measures implied volatility of S&P 500 options over next 30 days. Low VIX = complacency/calm; high VIX = fear/hedging demand.",
     },
     {
       id: "pmi",
@@ -168,6 +170,8 @@ export function getMockSignals(): MacroSignal[] {
       bullishCondition: "> 52",
       neutralCondition: "48–52",
       bearishCondition: "< 48",
+      source: "FRED (CFNAI)",
+      tooltip: "Chicago Fed National Activity Index — a weighted average of 85 economic indicators. Values above 0 indicate above-trend growth; below -0.7 signals recession risk.",
     },
     {
       id: "dxy",
@@ -180,6 +184,8 @@ export function getMockSignals(): MacroSignal[] {
       bullishCondition: "Weakening",
       neutralCondition: "Stable",
       bearishCondition: "Strengthening",
+      source: "FRED (DTWEXBGS)",
+      tooltip: "Trade Weighted US Dollar Index (Broad). A strengthening dollar headwinds emerging-market and multinational earnings; weakening dollar is a tailwind.",
     },
     {
       id: "oil",
@@ -192,6 +198,8 @@ export function getMockSignals(): MacroSignal[] {
       bullishCondition: "Stable",
       neutralCondition: "Moderate move",
       bearishCondition: "Spiking",
+      source: "FRED (DCOILWTICO)",
+      tooltip: "West Texas Intermediate crude oil spot price. Stable oil supports corporate margins; spikes act as a tax on consumers and compress earnings.",
     },
     {
       id: "earnings",
@@ -204,6 +212,8 @@ export function getMockSignals(): MacroSignal[] {
       bullishCondition: "Net upgrades",
       neutralCondition: "Mixed",
       bearishCondition: "Net downgrades",
+      source: "SEC EDGAR",
+      tooltip: "Net earnings revision ratio from SEC 10-Q/10-K filings. Positive revisions indicate improving corporate fundamentals and analyst confidence.",
     },
 
     // Sentiment (0.5x weight)
@@ -218,6 +228,8 @@ export function getMockSignals(): MacroSignal[] {
       bullishCondition: "Extreme fear (contrarian)",
       neutralCondition: "Neutral",
       bearishCondition: "Extreme greed (contrarian)",
+      source: "Computed (AAII proxy)",
+      tooltip: "American Association of Individual Investors survey proxy. Used as a contrarian indicator — extreme bearishness is bullish, extreme bullishness is a warning.",
     },
     {
       id: "seasonality",
@@ -230,6 +242,8 @@ export function getMockSignals(): MacroSignal[] {
       bullishCondition: "Nov–Apr",
       neutralCondition: "Transitional",
       bearishCondition: "Sep–Oct",
+      source: "Computed",
+      tooltip: "Historical seasonal patterns of the S&P 500. 'Sell in May' effect — Nov–Apr has historically outperformed May–Oct by ~4% annually since 1950.",
     },
   ];
 }
