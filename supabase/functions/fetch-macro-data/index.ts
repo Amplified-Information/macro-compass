@@ -488,11 +488,12 @@ Deno.serve(async (req) => {
   }
 
   try {
-    // All fetches in parallel
+    // All fetches in parallel (EDGAR runs concurrently with FRED/AV)
     const [
       fredYieldSpread, fredCreditSpread, fredOil,
       fredVIX, fredPMI, fredSentiment, fredDXY,
       rspPrices, spyPrices,
+      insiderData,
     ] = await Promise.all([
       fetchFRED("T10Y2Y", fredKey).catch(() => null),
       fetchFRED("BAMLH0A0HYM2", fredKey).catch(() => null),
@@ -501,9 +502,9 @@ Deno.serve(async (req) => {
       fetchFRED("NAPM", fredKey).catch(() => null),
       fetchFRED("UMCSENT", fredKey).catch(() => null),
       fetchFREDSeries("DTWEXBGS", fredKey, 30).catch(() => []),
-      // Breadth proxy: RSP (equal-weight S&P 500) vs SPY (cap-weight)
       avKey ? fetchAVDaily("RSP", avKey).catch(() => []) : Promise.resolve([]),
       avKey ? fetchAVDaily("SPY", avKey).catch(() => []) : Promise.resolve([]),
+      fetchEdgarInsiderActivity().catch(() => null),
     ]);
 
     // M2 YoY calculation
