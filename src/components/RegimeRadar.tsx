@@ -1,19 +1,61 @@
-import { MacroSignal, computeRegimeDimensions } from "@/lib/macroSignals";
+import { MacroSignal, computeRegimeDimensions, RegimeDimension } from "@/lib/macroSignals";
 import { RadarChart, PolarGrid, PolarAngleAxis, Radar, ResponsiveContainer } from "recharts";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { useState } from "react";
 
 interface Props {
   signals: MacroSignal[];
 }
 
+interface DimensionData {
+  dimension: string;
+  score: number;
+  value: number;
+  fullMark: number;
+  tooltip: string;
+}
+
+function CustomAxisTick({ x, y, payload, data }: any) {
+  const item = data.find((d: DimensionData) => d.dimension === payload.value);
+  const [open, setOpen] = useState(false);
+
+  if (!item) return null;
+
+  return (
+    <g transform={`translate(${x},${y})`}>
+      <TooltipProvider delayDuration={0}>
+        <Tooltip open={open} onOpenChange={setOpen}>
+          <TooltipTrigger asChild>
+            <text
+              textAnchor="middle"
+              fill="hsl(var(--muted-foreground))"
+              fontSize={10}
+              dy={4}
+              className="cursor-help"
+              onMouseEnter={() => setOpen(true)}
+              onMouseLeave={() => setOpen(false)}
+            >
+              {payload.value}
+            </text>
+          </TooltipTrigger>
+          <TooltipContent side="top" className="max-w-[220px] text-xs">
+            {item.tooltip}
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    </g>
+  );
+}
+
 export function RegimeRadar({ signals }: Props) {
   const dimensions = computeRegimeDimensions(signals);
 
-  const data = dimensions.map((d) => ({
+  const data: DimensionData[] = dimensions.map((d) => ({
     dimension: d.label,
     score: d.score,
-    // Shift -1..+1 to 0..1 for radar
     value: (d.score + 1) / 2,
     fullMark: 1,
+    tooltip: d.tooltip,
   }));
 
   return (
@@ -27,7 +69,7 @@ export function RegimeRadar({ signals }: Props) {
           <PolarGrid stroke="hsl(var(--border))" />
           <PolarAngleAxis
             dataKey="dimension"
-            tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 10 }}
+            tick={<CustomAxisTick data={data} />}
           />
           <Radar
             dataKey="value"
