@@ -546,8 +546,8 @@ Deno.serve(async (req) => {
     // All fetches in parallel (EDGAR runs concurrently with FRED/AV)
     const [
       fredYieldSpread, fredCreditSpread, fredOil,
-      fredVIX, fredPMI, fredSentiment, fredDXY,
-      rspPrices, spyPrices,
+      fredVIX, fredCFNAI, fredSentiment, fredDXY,
+      sp500Series, wilshire5000Series,
       insiderData, earningsData,
     ] = await Promise.all([
       fetchFRED("T10Y2Y", fredKey).catch(() => null),
@@ -557,8 +557,9 @@ Deno.serve(async (req) => {
       fetchFRED("CFNAI", fredKey).catch((e) => { console.error("CFNAI fetch error:", e); return null; }),
       fetchFRED("UMCSENT", fredKey).catch(() => null),
       fetchFREDSeries("DTWEXBGS", fredKey, 30).catch(() => []),
-      avKey ? fetchAVDaily("RSP", avKey).catch((e) => { console.error("AV RSP error:", e); return []; }) : Promise.resolve([]),
-      avKey ? fetchAVDaily("SPY", avKey).catch((e) => { console.error("AV SPY error:", e); return []; }) : Promise.resolve([]),
+      // Breadth: SP500 vs Wilshire 5000 (total market) from FRED
+      fetchFREDSeries("SP500", fredKey, 60).catch(() => []),
+      fetchFREDSeries("WILL5000IND", fredKey, 60).catch(() => []),
       fetchEdgarInsiderActivity().catch(() => null),
       fetchEdgarEarningsRevisions().catch(() => null),
     ]);
