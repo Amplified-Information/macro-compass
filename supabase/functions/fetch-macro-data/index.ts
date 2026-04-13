@@ -1,4 +1,7 @@
-import { corsHeaders } from "@supabase/supabase-js/cors";
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
 
 const AV_BASE = "https://www.alphavantage.co/query";
 const FRED_BASE = "https://api.stlouisfed.org/fred/series/observations";
