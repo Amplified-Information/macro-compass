@@ -618,7 +618,7 @@ Deno.serve(async (req) => {
         previousValue: dxyPrevious,
         changePercent: dxyPrevious && !isNaN(dxyPrevious) ? ((dxyCurrent - dxyPrevious) / dxyPrevious) * 100 : 0,
       } : null,
-      pmi: pmiValue !== null && !isNaN(pmiValue) ? { value: pmiValue } : null,
+      pmi: cfnaiValue !== null && !isNaN(cfnaiValue) ? { value: cfnaiValue, series: "CFNAI" } : null,
       sentiment: sentimentValue !== null && !isNaN(sentimentValue) ? { value: sentimentValue } : null,
       seasonality: { month: seasonLabel, score: seasonScore },
       breadth: breadthData,
