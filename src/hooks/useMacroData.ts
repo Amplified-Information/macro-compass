@@ -14,6 +14,16 @@ export interface InsiderAPIData {
   daysScanned: number;
 }
 
+export interface EarningsAPIData {
+  epsImprovingCount: number;
+  epsDecliningCount: number;
+  epsStableCount: number;
+  companiesAnalyzed: number;
+  recentEarnings8K: number;
+  improvingRatio: number;
+  score: number;
+}
+
 export interface MacroAPIResponse {
   vix: { value: number } | null;
   oil: { value: number } | null;
@@ -26,6 +36,7 @@ export interface MacroAPIResponse {
   seasonality: { month: string; score: number } | null;
   breadth: { rspReturn: number; spyReturn: number; spread: number; score: number } | null;
   insider: InsiderAPIData | null;
+  earnings: EarningsAPIData | null;
   fetchedAt: string;
 }
 
@@ -135,6 +146,17 @@ export function applyLiveData(signals: MacroSignal[], data: MacroAPIResponse): M
             bullishCondition: "> 35% buy ratio",
             neutralCondition: "15–35%",
             bearishCondition: "< 15% buy ratio",
+          };
+        }
+        return s;
+      case "earnings":
+        if (data.earnings) {
+          const score = data.earnings.score as SignalScore;
+          const improvPct = Math.round(data.earnings.improvingRatio * 100);
+          return { ...s, value: `${improvPct}% improving`, score, description: `XBRL EPS trends across ${data.earnings.companiesAnalyzed} large-caps: ${data.earnings.epsImprovingCount} improving, ${data.earnings.epsDecliningCount} declining, ${data.earnings.epsStableCount} stable. ${data.earnings.recentEarnings8K} earnings 8-Ks filed in last 30d. ${score === 1 ? "Majority of earnings improving — bullish revision momentum." : score === 0 ? "Mixed earnings trends." : "Majority declining — bearish revision momentum."}`,
+            bullishCondition: "> 50% improving",
+            neutralCondition: "Mixed",
+            bearishCondition: "> 50% declining",
           };
         }
         return s;

@@ -273,7 +273,162 @@ function scoreInsider(buyRatio: number): number {
   return -1;
 }
 
-// ===================== END EDGAR SCRAPER =====================
+// ===================== EDGAR EARNINGS REVISIONS SCRAPER =====================
+
+// Large-cap CIKs for XBRL EPS trend analysis
+const LARGE_CAP_CIKS = [
+  "0000320193", // AAPL
+  "0000789019", // MSFT
+  "0001652044", // GOOG
+  "0001018724", // AMZN
+  "0001326801", // META
+  "0001045810", // NVDA
+  "0000078003", // PFE
+  "0000320187", // JNJ (actually J&J)
+  "0000732717", // UNH
+  "0000093410", // CVX
+  "0000034088", // XOM
+  "0000858877", // HD
+  "0000886982", // GS
+  "0000019617", // JPM
+  "0000070858", // BAC
+  "0000050863", // INTC
+  "0000004962", // AXP
+  "0000066740", // MMM
+  "0000018230", // CAT
+  "0000310158", // DIS
+];
+
+interface EarningsResult {
+  epsImprovingCount: number;
+  epsDecliningCount: number;
+  epsStableCount: number;
+  companiesAnalyzed: number;
+  recentEarnings8K: number;
+  improvingRatio: number;
+  score: number;
+}
+
+async function fetchXbrlEps(cik: string): Promise<{ recent: number; prior: number } | null> {
+  try {
+    const url = `https://data.sec.gov/api/xbrl/companyfacts/CIK${cik}.json`;
+    const res = await fetch(url, { headers: SEC_HEADERS });
+    if (!res.ok) { await res.text(); return null; }
+    const data = await res.json();
+
+    const epsFact = data?.facts?.["us-gaap"]?.EarningsPerShareDiluted;
+    if (!epsFact) return null;
+
+    const units = epsFact.units;
+    const entries: any[] = [];
+    for (const unitKey in units) {
+      entries.push(...units[unitKey]);
+    }
+
+    // Filter to quarterly filings (10-Q and 10-K with quarterly period)
+    // Get entries with unique end dates, preferring shorter durations (quarterly)
+    const quarterly = entries
+      .filter((e: any) => e.form === "10-Q" || e.form === "10-K")
+      .sort((a: any, b: any) => b.end.localeCompare(a.end));
+
+    // Deduplicate by end date, take shortest duration (most likely single quarter)
+    const seen = new Set<string>();
+    const unique: any[] = [];
+    for (const e of quarterly) {
+      if (!seen.has(e.end)) {
+        seen.add(e.end);
+        unique.push(e);
+      }
+    }
+
+    if (unique.length < 2) return null;
+
+    return {
+      recent: unique[0].val,
+      prior: unique[1].val,
+    };
+  } catch {
+    return null;
+  }
+}
+
+async function fetchEdgarEarningsRevisions(): Promise<EarningsResult | null> {
+  try {
+    // Part 1: XBRL EPS trends for large-caps
+    console.log("EDGAR Earnings: Fetching XBRL EPS for large-caps...");
+
+    let epsImproving = 0;
+    let epsDeclining = 0;
+    let epsStable = 0;
+    let companiesAnalyzed = 0;
+
+    // Fetch in batches of 5 to respect SEC rate limits
+    for (let i = 0; i < LARGE_CAP_CIKS.length; i += 5) {
+      const batch = LARGE_CAP_CIKS.slice(i, i + 5);
+      const results = await Promise.all(batch.map((cik) => fetchXbrlEps(cik)));
+
+      for (const r of results) {
+        if (r !== null) {
+          companiesAnalyzed++;
+          const changePct = r.prior !== 0 ? ((r.recent - r.prior) / Math.abs(r.prior)) * 100 : 0;
+          if (changePct > 5) epsImproving++;
+          else if (changePct < -5) epsDeclining++;
+          else epsStable++;
+        }
+      }
+
+      if (i + 5 < LARGE_CAP_CIKS.length) await sleep(600);
+    }
+
+    // Part 2: Count recent 8-K earnings announcements (Item 2.02)
+    let recent8KCount = 0;
+    try {
+      const endDate = new Date();
+      const startDate = new Date();
+      startDate.setDate(startDate.getDate() - 30);
+      const startStr = startDate.toISOString().slice(0, 10);
+      const endStr = endDate.toISOString().slice(0, 10);
+
+      const searchUrl = `https://efts.sec.gov/LATEST/search-index?q=%22Item+2.02%22&forms=8-K&dateRange=custom&startdt=${startStr}&enddt=${endStr}&from=0&size=1`;
+      const res = await fetch(searchUrl, { headers: SEC_HEADERS });
+      if (res.ok) {
+        const data = await res.json();
+        recent8KCount = data?.hits?.total?.value ?? 0;
+      } else {
+        await res.text();
+      }
+    } catch { /* ignore */ }
+
+    const total = epsImproving + epsDeclining + epsStable;
+    const improvingRatio = total > 0 ? epsImproving / total : 0.5;
+    const decliningRatio = total > 0 ? epsDeclining / total : 0.5;
+
+    // Score: net improving vs declining
+    let score: number;
+    if (improvingRatio > 0.5) score = 1;        // Most companies improving
+    else if (decliningRatio > 0.5) score = -1;   // Most companies declining
+    else score = 0;                               // Mixed
+
+    const result: EarningsResult = {
+      epsImprovingCount: epsImproving,
+      epsDecliningCount: epsDeclining,
+      epsStableCount: epsStable,
+      companiesAnalyzed,
+      recentEarnings8K: recent8KCount,
+      improvingRatio: Math.round(improvingRatio * 1000) / 1000,
+      score,
+    };
+
+    console.log(`EDGAR Earnings: ${companiesAnalyzed} companies analyzed. Improving: ${epsImproving}, Declining: ${epsDeclining}, Stable: ${epsStable}. Recent 8-Ks: ${recent8KCount}. Score: ${score}`);
+
+    return result;
+  } catch (error) {
+    console.error("EDGAR Earnings scraper error:", error);
+    return null;
+  }
+}
+
+// ===================== END EDGAR EARNINGS SCRAPER =====================
 
 // Scoring functions
 function scoreVIX(v: number) { return v < 15 ? 1 : v <= 25 ? 0 : -1; }
@@ -384,7 +539,7 @@ Deno.serve(async (req) => {
       fredYieldSpread, fredCreditSpread, fredOil,
       fredVIX, fredPMI, fredSentiment, fredDXY,
       rspPrices, spyPrices,
-      insiderData,
+      insiderData, earningsData,
     ] = await Promise.all([
       fetchFRED("T10Y2Y", fredKey).catch(() => null),
       fetchFRED("BAMLH0A0HYM2", fredKey).catch(() => null),
@@ -396,6 +551,7 @@ Deno.serve(async (req) => {
       avKey ? fetchAVDaily("RSP", avKey).catch(() => []) : Promise.resolve([]),
       avKey ? fetchAVDaily("SPY", avKey).catch(() => []) : Promise.resolve([]),
       fetchEdgarInsiderActivity().catch(() => null),
+      fetchEdgarEarningsRevisions().catch(() => null),
     ]);
 
     // M2 YoY calculation
@@ -465,16 +621,16 @@ Deno.serve(async (req) => {
       seasonality: { month: seasonLabel, score: seasonScore },
       breadth: breadthData,
       insider: insiderData as InsiderResult | null,
+      earnings: earningsData as EarningsResult | null,
       fetchedAt: new Date().toISOString(),
     };
 
     // Compute signal scores
-    const signalScores: Record<string, number> = {
-      // Still mock (no free public API):
-      "earnings": 1,
-    };
+    const signalScores: Record<string, number> = {};
     if (insiderData) signalScores["insider"] = insiderData.score;
     else signalScores["insider"] = 0;
+    if (earningsData) signalScores["earnings"] = earningsData.score;
+    else signalScores["earnings"] = 0;
     if (result.vix) signalScores["vix"] = scoreVIX(result.vix.value);
     if (result.yieldCurve) signalScores["yield-curve"] = scoreYieldCurve(result.yieldCurve.spread);
     if (result.creditSpread) signalScores["credit-spreads"] = scoreCreditSpread(result.creditSpread.bps);
