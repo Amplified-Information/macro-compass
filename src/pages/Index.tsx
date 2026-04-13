@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { computeComposite, CAPE_ELEVATED, SignalCategory } from "@/lib/macroSignals";
+import { CAPE_ELEVATED, SignalCategory } from "@/lib/macroSignals";
 import { useMacroData } from "@/hooks/useMacroData";
 import { CompositeGauge } from "@/components/CompositeGauge";
 import { SignalGroup } from "@/components/SignalGroup";
@@ -8,18 +8,21 @@ import { CapeDampener } from "@/components/CapeDampener";
 import { RegimeMap } from "@/components/RegimeMap";
 import { CategoryRadar } from "@/components/CategoryRadar";
 import { DeploymentSparkline } from "@/components/DeploymentSparkline";
+import { TimeSlider } from "@/components/TimeSlider";
 import { Activity, Wifi, WifiOff } from "lucide-react";
 
 const CATEGORIES: SignalCategory[] = ["leading", "coincident", "sentiment"];
 
 export default function Index() {
-  const { signals, isLoading, isLive, fetchedAt } = useMacroData();
-  const result = useMemo(() => computeComposite(signals, CAPE_ELEVATED), [signals]);
+  const {
+    signals, result, isLoading, isLive, fetchedAt,
+    snapshots, selectedSnapshotIdx, setSelectedSnapshotIdx, isViewingHistory,
+  } = useMacroData();
 
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
-      <header className="border-b border-border">
+      <header className={`border-b ${isViewingHistory ? "border-signal-neutral/30" : "border-border"}`}>
         <div className="container max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="p-2 rounded-lg bg-primary/10">
@@ -31,6 +34,11 @@ export default function Index() {
             </div>
           </div>
           <div className="flex items-center gap-3">
+            {isViewingHistory && (
+              <span className="text-xs font-mono px-2 py-1 rounded-full bg-signal-neutral/10 text-signal-neutral border border-signal-neutral/30">
+                Viewing Historical Snapshot
+              </span>
+            )}
             <div className={`flex items-center gap-1.5 text-xs font-mono px-2 py-1 rounded-full border ${
               isLive ? "border-signal-bullish/30 text-signal-bullish bg-signal-bullish/10" :
               isLoading ? "border-signal-neutral/30 text-signal-neutral bg-signal-neutral/10" :
@@ -49,6 +57,13 @@ export default function Index() {
       </header>
 
       <main className="container max-w-7xl mx-auto px-4 py-6 space-y-6">
+        {/* Time Slider */}
+        <TimeSlider
+          snapshots={snapshots}
+          selectedIdx={selectedSnapshotIdx}
+          onSelect={setSelectedSnapshotIdx}
+        />
+
         {/* CAPE Banner */}
         <CapeDampener />
 
