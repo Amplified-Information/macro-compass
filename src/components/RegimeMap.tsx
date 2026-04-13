@@ -137,7 +137,7 @@ export function RegimeMap({ result, signals }: { result: CompositeResult; signal
 
       {/* Spectrum bar */}
       <div className="space-y-1">
-        <div className="relative h-10 rounded-lg overflow-hidden flex mt-6">
+        <div className="relative h-12 rounded-lg overflow-hidden flex mt-6">
           {REGIMES.slice().reverse().map((regime, i) => {
             const realIdx = REGIMES.length - 1 - i;
             const isActive = realIdx === activeIdx;
@@ -149,7 +149,7 @@ export function RegimeMap({ result, signals }: { result: CompositeResult; signal
                 className={`relative flex items-center justify-center transition-all ${c.barBg} ${isActive ? "opacity-100 ring-2 ring-foreground/30 z-10" : "opacity-30"}`}
                 style={{ width: `${widthPct}%` }}
               >
-                <span className={`text-[11px] font-mono font-bold text-primary-foreground truncate px-1 ${isActive ? "" : "opacity-60"}`}>
+                <span className={`text-sm font-mono font-bold text-primary-foreground truncate px-1 ${isActive ? "" : "opacity-60"}`}>
                   {regime.label}
                 </span>
               </div>
