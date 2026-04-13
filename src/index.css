@@ -108,6 +108,15 @@
   .border-signal-bearish\/30 {
     border-color: hsl(var(--signal-bearish) / 0.3);
   }
+  .border-l-signal-bullish {
+    border-left-color: hsl(var(--signal-bullish));
+  }
+  .border-l-signal-neutral {
+    border-left-color: hsl(var(--signal-neutral));
+  }
+  .border-l-muted-foreground {
+    border-left-color: hsl(var(--muted-foreground));
+  }
 }
 
 @keyframes pulse-glow {
