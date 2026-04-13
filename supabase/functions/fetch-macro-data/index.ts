@@ -590,6 +590,7 @@ Deno.serve(async (req) => {
     let breadthData: { rspReturn: number; spyReturn: number; spread: number; score: number } | null = null;
     const rsp = rspPrices as number[];
     const spy = spyPrices as number[];
+    console.log(`Breadth: RSP prices=${rsp.length}, SPY prices=${spy.length}`);
     const lookback = 50;
     if (rsp.length > lookback && spy.length > lookback) {
       const rspReturn = ((rsp[0] - rsp[lookback]) / rsp[lookback]) * 100;
@@ -601,6 +602,8 @@ Deno.serve(async (req) => {
         spread: Math.round(spread * 100) / 100,
         score: scoreBreadth(rspReturn, spyReturn),
       };
+    } else if (rsp.length > 0 || spy.length > 0) {
+      console.log(`Breadth: Not enough data (need >${lookback}). RSP=${rsp.length}, SPY=${spy.length}`);
     }
 
     // Seasonality
