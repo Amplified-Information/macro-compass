@@ -34,7 +34,7 @@ export interface MacroAPIResponse {
   pmi: { value: number } | null;
   sentiment: { value: number } | null;
   seasonality: { month: string; score: number } | null;
-  breadth: { totalMktReturn: number; sp500Return: number; spread: number; score: number } | null;
+  breadth: { sp500Return: number; djiaReturn: number; spread: number; score: number } | null;
   insider: InsiderAPIData | null;
   earnings: EarningsAPIData | null;
   fetchedAt: string;
