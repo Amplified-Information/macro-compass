@@ -594,30 +594,30 @@ Deno.serve(async (req) => {
       dxyPrevious = parseFloat(dxyObs[1].value);
     }
 
-    // Breadth: Wilshire 5000 (total market) vs S&P 500 (large-cap) from FRED
-    // If total market outperforms large-cap, breadth is broad (bullish)
-    let breadthData: { totalMktReturn: number; sp500Return: number; spread: number; score: number } | null = null;
+    // Breadth: SP500 (broad 500) vs DJIA (concentrated 30) from FRED
+    // If SP500 outperforms DJIA, broader participation beyond mega-caps
+    let breadthData: { sp500Return: number; djiaReturn: number; spread: number; score: number } | null = null;
     const sp5 = sp500Series as Array<{ date: string; value: string }>;
-    const w5k = wilshire5000Series as Array<{ date: string; value: string }>;
-    const lookback = 40; // ~40 trading days (~2 months of FRED daily data)
-    if (Array.isArray(sp5) && Array.isArray(w5k) && sp5.length > lookback && w5k.length > lookback) {
+    const dji = wilshire5000Series as Array<{ date: string; value: string }>;
+    const lookback = 40;
+    if (Array.isArray(sp5) && Array.isArray(dji) && sp5.length > lookback && dji.length > lookback) {
       const sp5Recent = parseFloat(sp5[0].value);
       const sp5Old = parseFloat(sp5[lookback].value);
-      const w5kRecent = parseFloat(w5k[0].value);
-      const w5kOld = parseFloat(w5k[lookback].value);
-      if (!isNaN(sp5Recent) && !isNaN(sp5Old) && sp5Old > 0 && !isNaN(w5kRecent) && !isNaN(w5kOld) && w5kOld > 0) {
-        const sp500Return = ((sp5Recent - sp5Old) / sp5Old) * 100;
-        const totalMktReturn = ((w5kRecent - w5kOld) / w5kOld) * 100;
-        const spread = totalMktReturn - sp500Return;
+      const djiRecent = parseFloat(dji[0].value);
+      const djiOld = parseFloat(dji[lookback].value);
+      if (!isNaN(sp5Recent) && !isNaN(sp5Old) && sp5Old > 0 && !isNaN(djiRecent) && !isNaN(djiOld) && djiOld > 0) {
+        const sp500Ret = ((sp5Recent - sp5Old) / sp5Old) * 100;
+        const djiaRet = ((djiRecent - djiOld) / djiOld) * 100;
+        const spread = sp500Ret - djiaRet;
         breadthData = {
-          totalMktReturn: Math.round(totalMktReturn * 100) / 100,
-          sp500Return: Math.round(sp500Return * 100) / 100,
+          sp500Return: Math.round(sp500Ret * 100) / 100,
+          djiaReturn: Math.round(djiaRet * 100) / 100,
           spread: Math.round(spread * 100) / 100,
-          score: scoreBreadth(totalMktReturn, sp500Return),
+          score: scoreBreadth(sp500Ret, djiaRet),
         };
       }
     }
-    console.log(`Breadth: SP500 obs=${sp5?.length ?? 0}, W5000 obs=${w5k?.length ?? 0}, data=${breadthData ? JSON.stringify(breadthData) : 'null'}`);
+    console.log(`Breadth: SP500 obs=${sp5?.length ?? 0}, DJIA obs=${dji?.length ?? 0}, data=${breadthData ? JSON.stringify(breadthData) : 'null'}`);
 
     // Seasonality
     const seasonScore = scoreSeasonality();
