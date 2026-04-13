@@ -13,6 +13,7 @@ export interface MacroAPIResponse {
   pmi: { value: number } | null;
   sentiment: { value: number } | null;
   seasonality: { month: string; score: number } | null;
+  breadth: { rspReturn: number; spyReturn: number; spread: number; score: number } | null;
   fetchedAt: string;
 }
 
