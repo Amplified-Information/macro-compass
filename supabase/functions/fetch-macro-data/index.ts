@@ -582,8 +582,7 @@ Deno.serve(async (req) => {
     const yieldSpread = fredYieldSpread ? parseFloat(fredYieldSpread) : null;
     const creditSpreadVal = fredCreditSpread ? parseFloat(fredCreditSpread) : null;
     const oilPrice = fredOil ? parseFloat(fredOil) : null;
-    const cfnaiValue = fredPMI ? parseFloat(fredPMI) : null;
-    console.log("CFNAI raw value:", fredPMI, "parsed:", cfnaiValue);
+    const cfnaiValue = fredCFNAI ? parseFloat(fredCFNAI) : null;
     const sentimentValue = fredSentiment ? parseFloat(fredSentiment) : null;
 
     // DXY direction
@@ -595,25 +594,30 @@ Deno.serve(async (req) => {
       dxyPrevious = parseFloat(dxyObs[1].value);
     }
 
-    // Breadth: RSP vs SPY relative performance over ~50 trading days
-    let breadthData: { rspReturn: number; spyReturn: number; spread: number; score: number } | null = null;
-    const rsp = rspPrices as number[];
-    const spy = spyPrices as number[];
-    console.log(`Breadth: RSP prices=${rsp.length}, SPY prices=${spy.length}`);
-    const lookback = 50;
-    if (rsp.length > lookback && spy.length > lookback) {
-      const rspReturn = ((rsp[0] - rsp[lookback]) / rsp[lookback]) * 100;
-      const spyReturn = ((spy[0] - spy[lookback]) / spy[lookback]) * 100;
-      const spread = rspReturn - spyReturn;
-      breadthData = {
-        rspReturn: Math.round(rspReturn * 100) / 100,
-        spyReturn: Math.round(spyReturn * 100) / 100,
-        spread: Math.round(spread * 100) / 100,
-        score: scoreBreadth(rspReturn, spyReturn),
-      };
-    } else if (rsp.length > 0 || spy.length > 0) {
-      console.log(`Breadth: Not enough data (need >${lookback}). RSP=${rsp.length}, SPY=${spy.length}`);
+    // Breadth: Wilshire 5000 (total market) vs S&P 500 (large-cap) from FRED
+    // If total market outperforms large-cap, breadth is broad (bullish)
+    let breadthData: { totalMktReturn: number; sp500Return: number; spread: number; score: number } | null = null;
+    const sp5 = sp500Series as Array<{ date: string; value: string }>;
+    const w5k = wilshire5000Series as Array<{ date: string; value: string }>;
+    const lookback = 40; // ~40 trading days (~2 months of FRED daily data)
+    if (Array.isArray(sp5) && Array.isArray(w5k) && sp5.length > lookback && w5k.length > lookback) {
+      const sp5Recent = parseFloat(sp5[0].value);
+      const sp5Old = parseFloat(sp5[lookback].value);
+      const w5kRecent = parseFloat(w5k[0].value);
+      const w5kOld = parseFloat(w5k[lookback].value);
+      if (!isNaN(sp5Recent) && !isNaN(sp5Old) && sp5Old > 0 && !isNaN(w5kRecent) && !isNaN(w5kOld) && w5kOld > 0) {
+        const sp500Return = ((sp5Recent - sp5Old) / sp5Old) * 100;
+        const totalMktReturn = ((w5kRecent - w5kOld) / w5kOld) * 100;
+        const spread = totalMktReturn - sp500Return;
+        breadthData = {
+          totalMktReturn: Math.round(totalMktReturn * 100) / 100,
+          sp500Return: Math.round(sp500Return * 100) / 100,
+          spread: Math.round(spread * 100) / 100,
+          score: scoreBreadth(totalMktReturn, sp500Return),
+        };
+      }
     }
+    console.log(`Breadth: SP500 obs=${sp5?.length ?? 0}, W5000 obs=${w5k?.length ?? 0}, data=${breadthData ? JSON.stringify(breadthData) : 'null'}`);
 
     // Seasonality
     const seasonScore = scoreSeasonality();
