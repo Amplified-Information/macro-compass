@@ -557,9 +557,9 @@ Deno.serve(async (req) => {
       fetchFRED("CFNAI", fredKey).catch((e) => { console.error("CFNAI fetch error:", e); return null; }),
       fetchFRED("UMCSENT", fredKey).catch(() => null),
       fetchFREDSeries("DTWEXBGS", fredKey, 30).catch(() => []),
-      // Breadth: SP500 vs Wilshire 5000 (total market) from FRED
+      // Breadth: SP500 (500 stocks) vs DJIA (30 stocks) from FRED
       fetchFREDSeries("SP500", fredKey, 60).catch(() => []),
-      fetchFREDSeries("WILL5000IND", fredKey, 60).catch(() => []),
+      fetchFREDSeries("DJIA", fredKey, 60).catch(() => []),
       fetchEdgarInsiderActivity().catch(() => null),
       fetchEdgarEarningsRevisions().catch(() => null),
     ]);
