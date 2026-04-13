@@ -14,6 +14,16 @@ export interface InsiderAPIData {
   daysScanned: number;
 }
 
+export interface EarningsAPIData {
+  epsImprovingCount: number;
+  epsDecliningCount: number;
+  epsStableCount: number;
+  companiesAnalyzed: number;
+  recentEarnings8K: number;
+  improvingRatio: number;
+  score: number;
+}
+
 export interface MacroAPIResponse {
   vix: { value: number } | null;
   oil: { value: number } | null;
@@ -26,6 +36,7 @@ export interface MacroAPIResponse {
   seasonality: { month: string; score: number } | null;
   breadth: { rspReturn: number; spyReturn: number; spread: number; score: number } | null;
   insider: InsiderAPIData | null;
+  earnings: EarningsAPIData | null;
   fetchedAt: string;
 }
 
