@@ -14,7 +14,33 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      macro_snapshots: {
+        Row: {
+          composite_score: number | null
+          created_at: string
+          id: string
+          regime: string | null
+          signals: Json | null
+          snapshot_data: Json
+        }
+        Insert: {
+          composite_score?: number | null
+          created_at?: string
+          id?: string
+          regime?: string | null
+          signals?: Json | null
+          snapshot_data: Json
+        }
+        Update: {
+          composite_score?: number | null
+          created_at?: string
+          id?: string
+          regime?: string | null
+          signals?: Json | null
+          snapshot_data?: Json
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
