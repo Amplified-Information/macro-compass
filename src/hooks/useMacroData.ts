@@ -106,8 +106,12 @@ export function applyLiveData(signals: MacroSignal[], data: MacroAPIResponse): M
         return s;
       case "pmi":
         if (data.pmi) {
-          const score = scorePMI(data.pmi.value);
-          return { ...s, value: data.pmi.value.toFixed(1), score, description: `ISM Manufacturing PMI at ${data.pmi.value.toFixed(1)}. ${score === 1 ? "Expansionary — economy growing." : score === 0 ? "Borderline — mixed signals." : "Contractionary — recession risk."}` };
+          const score = scoreCFNAI(data.pmi.value);
+          return { ...s, value: data.pmi.value.toFixed(2), score, description: `Chicago Fed National Activity Index at ${data.pmi.value.toFixed(2)}. ${score === 1 ? "Above-trend growth — economy expanding." : score === 0 ? "Near trend — neutral activity." : "Well below trend — recession risk."}`,
+            bullishCondition: "> 0 (above trend)",
+            neutralCondition: "0 to -0.7",
+            bearishCondition: "< -0.7 (recession)",
+          };
         }
         return s;
       case "sentiment":
