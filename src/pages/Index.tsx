@@ -82,7 +82,7 @@ export default function Index() {
         </div>
 
         {/* Regime Map */}
-        <RegimeMap result={result} />
+        <RegimeMap result={result} signals={signals} />
 
         {/* Signal groups */}
         {CATEGORIES.map((cat) => (
