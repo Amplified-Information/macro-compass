@@ -133,10 +133,10 @@ export function applyLiveData(signals: MacroSignal[], data: MacroAPIResponse): M
         if (data.breadth) {
           const score = data.breadth.score as SignalScore;
           const spread = data.breadth.spread > 0 ? `+${data.breadth.spread}` : `${data.breadth.spread}`;
-          return { ...s, value: `${spread}%`, score, description: `Wilshire 5000 vs S&P 500 relative spread: ${spread}%. Total market ${data.breadth.totalMktReturn > 0 ? "+" : ""}${data.breadth.totalMktReturn}% vs S&P 500 ${data.breadth.sp500Return > 0 ? "+" : ""}${data.breadth.sp500Return}%. ${score === 1 ? "Total market outperforming — broad participation." : score === 0 ? "Roughly in line — neutral breadth." : "Large-cap leading — narrow leadership, fewer stocks participating."}`,
-            bullishCondition: "W5000 > SP500 (broad)",
+          return { ...s, value: `${spread}%`, score, description: `S&P 500 vs DJIA 40-day relative spread: ${spread}%. S&P 500 ${data.breadth.sp500Return > 0 ? "+" : ""}${data.breadth.sp500Return}% vs DJIA ${data.breadth.djiaReturn > 0 ? "+" : ""}${data.breadth.djiaReturn}%. ${score === 1 ? "S&P 500 outperforming DJIA — broader participation beyond top 30." : score === 0 ? "Roughly in line — neutral breadth." : "DJIA leading S&P 500 — narrow mega-cap leadership."}`,
+            bullishCondition: "SP500 > DJIA (broad)",
             neutralCondition: "In line",
-            bearishCondition: "SP500 > W5000 (narrow)",
+            bearishCondition: "DJIA > SP500 (narrow)",
           };
         }
         return s;
