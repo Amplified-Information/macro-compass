@@ -3,6 +3,17 @@ import { supabase } from "@/integrations/supabase/client";
 import { getMockSignals, MacroSignal, SignalScore, computeComposite, CAPE_ELEVATED, CompositeResult } from "@/lib/macroSignals";
 import { useState, useMemo } from "react";
 
+export interface InsiderAPIData {
+  totalPurchaseValue: number;
+  totalSaleValue: number;
+  purchaseCount: number;
+  saleCount: number;
+  buyRatio: number;
+  filingsParsed: number;
+  score: number;
+  daysScanned: number;
+}
+
 export interface MacroAPIResponse {
   vix: { value: number } | null;
   oil: { value: number } | null;
@@ -14,6 +25,7 @@ export interface MacroAPIResponse {
   sentiment: { value: number } | null;
   seasonality: { month: string; score: number } | null;
   breadth: { rspReturn: number; spyReturn: number; spread: number; score: number } | null;
+  insider: InsiderAPIData | null;
   fetchedAt: string;
 }
 
