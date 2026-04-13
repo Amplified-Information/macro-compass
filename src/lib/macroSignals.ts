@@ -245,7 +245,45 @@ export function getMockSignals(): MacroSignal[] {
       source: "Computed",
       tooltip: "Historical seasonal patterns of the S&P 500. 'Sell in May' effect — Nov–Apr has historically outperformed May–Oct by ~4% annually since 1950.",
     },
+    {
+      id: "nfci",
+      name: "Financial Conditions (NFCI)",
+      category: "leading",
+      weight: 2,
+      score: 0,
+      value: "-0.12",
+      description: "Chicago Fed NFCI near neutral. Financial conditions neither loose nor tight.",
+      bullishCondition: "< -0.5 (loose)",
+      neutralCondition: "-0.5 to 0",
+      bearishCondition: "> 0 (tightening)",
+      source: "FRED (NFCI)",
+      tooltip: "Chicago Fed National Financial Conditions Index — a composite of 105 measures of credit, leverage, and risk. Negative values indicate loose conditions; positive values signal tightening or stress.",
+    },
   ];
+}
+
+export interface RegimeDimension {
+  label: string;
+  score: number;
+  signalIds: string[];
+}
+
+const REGIME_DIMENSION_MAP: { label: string; signalIds: string[] }[] = [
+  { label: "Macro Momentum", signalIds: ["yield-curve", "pmi", "earnings"] },
+  { label: "Volatility", signalIds: ["vix"] },
+  { label: "Trend", signalIds: ["breadth", "seasonality"] },
+  { label: "Liquidity", signalIds: ["m2", "nfci", "credit-spreads"] },
+  { label: "Rates / Dollar", signalIds: ["dxy", "oil"] },
+];
+
+export function computeRegimeDimensions(signals: MacroSignal[]): RegimeDimension[] {
+  return REGIME_DIMENSION_MAP.map((dim) => {
+    const matching = signals.filter((s) => dim.signalIds.includes(s.id));
+    const avg = matching.length > 0
+      ? matching.reduce((sum, s) => sum + s.score, 0) / matching.length
+      : 0;
+    return { label: dim.label, score: avg, signalIds: dim.signalIds };
+  });
 }
 
 export const CAPE_VALUE = 33.2;

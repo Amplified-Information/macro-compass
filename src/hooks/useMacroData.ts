@@ -37,6 +37,7 @@ export interface MacroAPIResponse {
   breadth: { sp500Return: number; djiaReturn: number; spread: number; score: number } | null;
   insider: InsiderAPIData | null;
   earnings: EarningsAPIData | null;
+  nfci: { value: number } | null;
   fetchedAt: string;
 }
 
@@ -56,6 +57,7 @@ function scoreM2(yoy: number): SignalScore { return yoy > 2 ? 1 : yoy >= -1 ? 0 
 function scoreOil(v: number): SignalScore { return v < 85 ? 1 : v <= 100 ? 0 : -1; }
 function scoreCFNAI(v: number): SignalScore { return v > 0 ? 1 : v >= -0.7 ? 0 : -1; }
 function scoreDXY(changePct: number): SignalScore { return changePct < -0.5 ? 1 : changePct <= 0.5 ? 0 : -1; }
+function scoreNFCI(v: number): SignalScore { return v < -0.5 ? 1 : v <= 0 ? 0 : -1; }
 function scoreSentiment(v: number): SignalScore {
   if (v < 60) return 1;
   if (v > 100) return -1;
@@ -162,6 +164,12 @@ export function applyLiveData(signals: MacroSignal[], data: MacroAPIResponse): M
             neutralCondition: "Mixed",
             bearishCondition: "> 50% declining",
           };
+        }
+        return s;
+      case "nfci":
+        if (data.nfci) {
+          const score = scoreNFCI(data.nfci.value);
+          return { ...s, value: data.nfci.value.toFixed(2), score, description: `Chicago Fed NFCI at ${data.nfci.value.toFixed(2)}. ${score === 1 ? "Loose financial conditions — bullish." : score === 0 ? "Neutral conditions." : "Tightening — credit stress rising."}` };
         }
         return s;
       default:

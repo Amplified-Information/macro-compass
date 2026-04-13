@@ -1,4 +1,5 @@
-import { CompositeResult } from "@/lib/macroSignals";
+import { CompositeResult, MacroSignal } from "@/lib/macroSignals";
+import { RegimeRadar } from "@/components/RegimeRadar";
 
 interface RegimeMapping {
   label: string;
@@ -120,7 +121,7 @@ function RegimeTag({ label, active }: { label: string; active?: boolean }) {
   );
 }
 
-export function RegimeMap({ result }: { result: CompositeResult }) {
+export function RegimeMap({ result, signals }: { result: CompositeResult; signals: MacroSignal[] }) {
   const activeIdx = REGIMES.findIndex(
     (r) => result.finalScore >= r.scoreRange[0] && result.finalScore <= r.scoreRange[1]
   );
@@ -171,8 +172,12 @@ export function RegimeMap({ result }: { result: CompositeResult }) {
         </div>
       </div>
 
-      {/* Regime detail cards */}
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+      {/* Regime Radar + Detail cards */}
+      <div className="grid gap-6 lg:grid-cols-3">
+        <div className="lg:col-span-1">
+          <RegimeRadar signals={signals} />
+        </div>
+        <div className="lg:col-span-2 grid gap-3 sm:grid-cols-2">
         {REGIMES.map((regime, idx) => {
           const isActive = idx === activeIdx;
           const c = colorMap[regime.color];
@@ -211,6 +216,7 @@ export function RegimeMap({ result }: { result: CompositeResult }) {
             </div>
           );
         })}
+        </div>
       </div>
     </div>
   );
