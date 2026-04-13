@@ -5,6 +5,8 @@ import { SignalGroup } from "@/components/SignalGroup";
 import { ScoreBreakdown } from "@/components/ScoreBreakdown";
 import { CapeDampener } from "@/components/CapeDampener";
 import { RegimeMap } from "@/components/RegimeMap";
+import { CategoryRadar } from "@/components/CategoryRadar";
+import { DeploymentSparkline } from "@/components/DeploymentSparkline";
 import { Activity } from "lucide-react";
 
 const CATEGORIES: SignalCategory[] = ["leading", "coincident", "sentiment"];
@@ -34,11 +36,20 @@ export default function Index() {
       </header>
 
       <main className="container max-w-7xl mx-auto px-4 py-6 space-y-6">
-        {/* Top section: Gauge + Breakdown */}
+        {/* CAPE Banner — top priority override */}
+        <CapeDampener />
+
+        {/* Two-column: Verdict (left) | Evidence (right) */}
         <div className="grid gap-6 lg:grid-cols-5">
-          <div className="lg:col-span-3">
+          {/* Left: Gauge + Radar + Sparkline */}
+          <div className="lg:col-span-3 space-y-6">
             <CompositeGauge result={result} />
+            <div className="grid gap-6 sm:grid-cols-2">
+              <CategoryRadar signals={signals} />
+              <DeploymentSparkline result={result} />
+            </div>
           </div>
+          {/* Right: Breakdown */}
           <div className="lg:col-span-2">
             <ScoreBreakdown signals={signals} result={result} />
           </div>
@@ -46,9 +57,6 @@ export default function Index() {
 
         {/* Regime Map */}
         <RegimeMap result={result} />
-
-        {/* CAPE Dampener */}
-        <CapeDampener />
 
         {/* Signal groups */}
         {CATEGORIES.map((cat) => (

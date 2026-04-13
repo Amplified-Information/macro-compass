@@ -7,12 +7,32 @@ const scoreConfig: Record<SignalScore, { icon: typeof TrendingUp; label: string;
   [-1]: { icon: TrendingDown, label: "Bearish", colorClass: "text-signal-bearish", bgClass: "bg-signal-bearish/10", borderClass: "border-signal-bearish/30" },
 };
 
+function ThresholdPill({ score }: { score: SignalScore }) {
+  // Visual position: -1 = left, 0 = center, 1 = right
+  const position = ((score + 1) / 2) * 100;
+
+  return (
+    <div className="relative h-2 rounded-full overflow-hidden flex mt-2">
+      <div className="flex-1 bg-signal-bearish/20 rounded-l-full" />
+      <div className="flex-1 bg-signal-neutral/20" />
+      <div className="flex-1 bg-signal-bullish/20 rounded-r-full" />
+      {/* Dot indicator */}
+      <div
+        className={`absolute top-1/2 -translate-y-1/2 w-3 h-3 rounded-full border-2 border-card shadow-md transition-all duration-500 ${
+          score === 1 ? "bg-signal-bullish" : score === -1 ? "bg-signal-bearish" : "bg-signal-neutral"
+        }`}
+        style={{ left: `calc(${position}% - 6px)` }}
+      />
+    </div>
+  );
+}
+
 export function SignalCard({ signal }: { signal: MacroSignal }) {
   const config = scoreConfig[signal.score];
   const Icon = config.icon;
 
   return (
-    <div className={`rounded-lg border bg-card p-4 space-y-3 transition-all hover:border-muted-foreground/20`}>
+    <div className="rounded-lg border bg-card p-4 space-y-3 transition-all hover:border-muted-foreground/20">
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
@@ -28,6 +48,8 @@ export function SignalCard({ signal }: { signal: MacroSignal }) {
           {config.label}
         </div>
       </div>
+
+      <ThresholdPill score={signal.score} />
 
       <p className="text-xs text-muted-foreground leading-relaxed">{signal.description}</p>
 
