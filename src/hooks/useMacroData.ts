@@ -34,7 +34,7 @@ export interface MacroAPIResponse {
   pmi: { value: number } | null;
   sentiment: { value: number } | null;
   seasonality: { month: string; score: number } | null;
-  breadth: { rspReturn: number; spyReturn: number; spread: number; score: number } | null;
+  breadth: { sp500Return: number; djiaReturn: number; spread: number; score: number } | null;
   insider: InsiderAPIData | null;
   earnings: EarningsAPIData | null;
   fetchedAt: string;
@@ -133,10 +133,10 @@ export function applyLiveData(signals: MacroSignal[], data: MacroAPIResponse): M
         if (data.breadth) {
           const score = data.breadth.score as SignalScore;
           const spread = data.breadth.spread > 0 ? `+${data.breadth.spread}` : `${data.breadth.spread}`;
-          return { ...s, value: `${spread}%`, score, description: `RSP vs SPY 50-day relative spread: ${spread}%. RSP ${data.breadth.rspReturn > 0 ? "+" : ""}${data.breadth.rspReturn}% vs SPY ${data.breadth.spyReturn > 0 ? "+" : ""}${data.breadth.spyReturn}%. ${score === 1 ? "Equal-weight outperforming — broad participation." : score === 0 ? "Roughly in line — neutral breadth." : "Cap-weight leading — narrow leadership, fewer stocks participating."}`,
-            bullishCondition: "RSP > SPY (broad)",
+          return { ...s, value: `${spread}%`, score, description: `S&P 500 vs DJIA 40-day relative spread: ${spread}%. S&P 500 ${data.breadth.sp500Return > 0 ? "+" : ""}${data.breadth.sp500Return}% vs DJIA ${data.breadth.djiaReturn > 0 ? "+" : ""}${data.breadth.djiaReturn}%. ${score === 1 ? "S&P 500 outperforming DJIA — broader participation beyond top 30." : score === 0 ? "Roughly in line — neutral breadth." : "DJIA leading S&P 500 — narrow mega-cap leadership."}`,
+            bullishCondition: "SP500 > DJIA (broad)",
             neutralCondition: "In line",
-            bearishCondition: "SPY > RSP (narrow)",
+            bearishCondition: "DJIA > SP500 (narrow)",
           };
         }
         return s;

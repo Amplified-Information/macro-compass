@@ -546,8 +546,8 @@ Deno.serve(async (req) => {
     // All fetches in parallel (EDGAR runs concurrently with FRED/AV)
     const [
       fredYieldSpread, fredCreditSpread, fredOil,
-      fredVIX, fredPMI, fredSentiment, fredDXY,
-      rspPrices, spyPrices,
+      fredVIX, fredCFNAI, fredSentiment, fredDXY,
+      sp500Series, wilshire5000Series,
       insiderData, earningsData,
     ] = await Promise.all([
       fetchFRED("T10Y2Y", fredKey).catch(() => null),
@@ -557,8 +557,9 @@ Deno.serve(async (req) => {
       fetchFRED("CFNAI", fredKey).catch((e) => { console.error("CFNAI fetch error:", e); return null; }),
       fetchFRED("UMCSENT", fredKey).catch(() => null),
       fetchFREDSeries("DTWEXBGS", fredKey, 30).catch(() => []),
-      avKey ? fetchAVDaily("RSP", avKey).catch((e) => { console.error("AV RSP error:", e); return []; }) : Promise.resolve([]),
-      avKey ? fetchAVDaily("SPY", avKey).catch((e) => { console.error("AV SPY error:", e); return []; }) : Promise.resolve([]),
+      // Breadth: SP500 (500 stocks) vs DJIA (30 stocks) from FRED
+      fetchFREDSeries("SP500", fredKey, 60).catch(() => []),
+      fetchFREDSeries("DJIA", fredKey, 60).catch(() => []),
       fetchEdgarInsiderActivity().catch(() => null),
       fetchEdgarEarningsRevisions().catch(() => null),
     ]);
@@ -581,8 +582,7 @@ Deno.serve(async (req) => {
     const yieldSpread = fredYieldSpread ? parseFloat(fredYieldSpread) : null;
     const creditSpreadVal = fredCreditSpread ? parseFloat(fredCreditSpread) : null;
     const oilPrice = fredOil ? parseFloat(fredOil) : null;
-    const cfnaiValue = fredPMI ? parseFloat(fredPMI) : null;
-    console.log("CFNAI raw value:", fredPMI, "parsed:", cfnaiValue);
+    const cfnaiValue = fredCFNAI ? parseFloat(fredCFNAI) : null;
     const sentimentValue = fredSentiment ? parseFloat(fredSentiment) : null;
 
     // DXY direction
@@ -594,25 +594,30 @@ Deno.serve(async (req) => {
       dxyPrevious = parseFloat(dxyObs[1].value);
     }
 
-    // Breadth: RSP vs SPY relative performance over ~50 trading days
-    let breadthData: { rspReturn: number; spyReturn: number; spread: number; score: number } | null = null;
-    const rsp = rspPrices as number[];
-    const spy = spyPrices as number[];
-    console.log(`Breadth: RSP prices=${rsp.length}, SPY prices=${spy.length}`);
-    const lookback = 50;
-    if (rsp.length > lookback && spy.length > lookback) {
-      const rspReturn = ((rsp[0] - rsp[lookback]) / rsp[lookback]) * 100;
-      const spyReturn = ((spy[0] - spy[lookback]) / spy[lookback]) * 100;
-      const spread = rspReturn - spyReturn;
-      breadthData = {
-        rspReturn: Math.round(rspReturn * 100) / 100,
-        spyReturn: Math.round(spyReturn * 100) / 100,
-        spread: Math.round(spread * 100) / 100,
-        score: scoreBreadth(rspReturn, spyReturn),
-      };
-    } else if (rsp.length > 0 || spy.length > 0) {
-      console.log(`Breadth: Not enough data (need >${lookback}). RSP=${rsp.length}, SPY=${spy.length}`);
+    // Breadth: SP500 (broad 500) vs DJIA (concentrated 30) from FRED
+    // If SP500 outperforms DJIA, broader participation beyond mega-caps
+    let breadthData: { sp500Return: number; djiaReturn: number; spread: number; score: number } | null = null;
+    const sp5 = sp500Series as Array<{ date: string; value: string }>;
+    const dji = wilshire5000Series as Array<{ date: string; value: string }>;
+    const lookback = 40;
+    if (Array.isArray(sp5) && Array.isArray(dji) && sp5.length > lookback && dji.length > lookback) {
+      const sp5Recent = parseFloat(sp5[0].value);
+      const sp5Old = parseFloat(sp5[lookback].value);
+      const djiRecent = parseFloat(dji[0].value);
+      const djiOld = parseFloat(dji[lookback].value);
+      if (!isNaN(sp5Recent) && !isNaN(sp5Old) && sp5Old > 0 && !isNaN(djiRecent) && !isNaN(djiOld) && djiOld > 0) {
+        const sp500Ret = ((sp5Recent - sp5Old) / sp5Old) * 100;
+        const djiaRet = ((djiRecent - djiOld) / djiOld) * 100;
+        const spread = sp500Ret - djiaRet;
+        breadthData = {
+          sp500Return: Math.round(sp500Ret * 100) / 100,
+          djiaReturn: Math.round(djiaRet * 100) / 100,
+          spread: Math.round(spread * 100) / 100,
+          score: scoreBreadth(sp500Ret, djiaRet),
+        };
+      }
     }
+    console.log(`Breadth: SP500 obs=${sp5?.length ?? 0}, DJIA obs=${dji?.length ?? 0}, data=${breadthData ? JSON.stringify(breadthData) : 'null'}`);
 
     // Seasonality
     const seasonScore = scoreSeasonality();
