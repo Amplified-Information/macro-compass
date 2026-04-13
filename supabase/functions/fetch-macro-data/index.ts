@@ -59,6 +59,222 @@ async function fetchAVDaily(symbol: string, apiKey: string): Promise<number[]> {
     .filter((v) => !isNaN(v));
 }
 
+// ===================== SEC EDGAR FORM 4 INSIDER SCRAPER =====================
+
+const SEC_HEADERS = {
+  "User-Agent": "MacroDashboard/1.0 (macro-dashboard@lovable.app)",
+  "Accept-Encoding": "gzip, deflate",
+  "Accept": "application/json, application/xml, text/xml, */*",
+};
+
+interface InsiderTransaction {
+  transactionCode: string; // P=Purchase, S=Sale, M=Exercise, G=Gift, A=Grant
+  shares: number;
+  pricePerShare: number;
+  totalValue: number;
+  acquiredOrDisposed: string; // A or D
+}
+
+interface InsiderResult {
+  totalPurchaseValue: number;
+  totalSaleValue: number;
+  purchaseCount: number;
+  saleCount: number;
+  buyRatio: number; // purchases / (purchases + sales) by value
+  filingsParsed: number;
+  score: number;
+  daysScanned: number;
+}
+
+async function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function parseForm4Xml(xml: string): InsiderTransaction[] {
+  const transactions: InsiderTransaction[] = [];
+
+  // Match both non-derivative and derivative transactions
+  // Non-derivative: <nonDerivativeTransaction>...</nonDerivativeTransaction>
+  // We parse transactionCode, shares, pricePerShare, acquiredOrDisposed
+  const txPatterns = [
+    /<nonDerivativeTransaction>([\s\S]*?)<\/nonDerivativeTransaction>/gi,
+    /<derivativeTransaction>([\s\S]*?)<\/derivativeTransaction>/gi,
+  ];
+
+  for (const pattern of txPatterns) {
+    let match;
+    while ((match = pattern.exec(xml)) !== null) {
+      const block = match[1];
+
+      // Transaction code
+      const codeMatch = block.match(/<transactionCode>(.*?)<\/transactionCode>/i);
+      const code = codeMatch?.[1]?.trim() ?? "";
+
+      // Only care about P (Purchase) and S (Sale)
+      if (code !== "P" && code !== "S") continue;
+
+      // Shares
+      const sharesMatch = block.match(
+        /<transactionShares>\s*<value>([\d.]+)<\/value>/i
+      );
+      const shares = sharesMatch ? parseFloat(sharesMatch[1]) : 0;
+
+      // Price per share
+      const priceMatch = block.match(
+        /<transactionPricePerShare>\s*<value>([\d.]+)<\/value>/i
+      );
+      const price = priceMatch ? parseFloat(priceMatch[1]) : 0;
+
+      // Acquired or Disposed
+      const adMatch = block.match(
+        /<acquiredDisposedCode>\s*<value>([AD])<\/value>/i
+      );
+      const ad = adMatch?.[1] ?? (code === "P" ? "A" : "D");
+
+      if (shares > 0) {
+        transactions.push({
+          transactionCode: code,
+          shares,
+          pricePerShare: price,
+          totalValue: shares * price,
+          acquiredOrDisposed: ad,
+        });
+      }
+    }
+  }
+
+  return transactions;
+}
+
+async function fetchEdgarInsiderActivity(): Promise<InsiderResult | null> {
+  try {
+    // Step 1: Query EDGAR EFTS full-text search for recent Form 4 filings
+    const endDate = new Date();
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - 30);
+
+    const startStr = startDate.toISOString().slice(0, 10);
+    const endStr = endDate.toISOString().slice(0, 10);
+
+    const searchUrl = `https://efts.sec.gov/LATEST/search-index?q=&forms=4&dateRange=custom&startdt=${startStr}&enddt=${endStr}&from=0&size=40`;
+
+    console.log("EDGAR: Fetching recent Form 4 index...");
+    const searchRes = await fetch(searchUrl, { headers: SEC_HEADERS });
+
+    let xmlUrls: string[] = [];
+
+    if (searchRes.ok) {
+      const searchData = await searchRes.json();
+      if (searchData.hits?.hits) {
+        xmlUrls = searchData.hits.hits
+          .map((h: any) => {
+            // _id format: "accession-number:filename.xml"
+            // _source.adsh: "0001452301-26-000008"
+            const adsh = h._source?.adsh;
+            const idParts = h._id?.split(":");
+            const filename = idParts?.[1];
+            if (adsh && filename) {
+              const adshPath = adsh.replace(/-/g, "");
+              // CIK from the first entry
+              const ciks = h._source?.ciks;
+              const cik = ciks?.[0];
+              if (cik) {
+                return `https://www.sec.gov/Archives/edgar/data/${parseInt(cik)}/${adshPath}/${filename}`;
+              }
+            }
+            return null;
+          })
+          .filter(Boolean)
+          .slice(0, 30);
+      }
+    } else {
+      const errText = await searchRes.text();
+      console.log("EDGAR: EFTS error:", searchRes.status, errText.substring(0, 200));
+    }
+
+    console.log(`EDGAR: Found ${xmlUrls.length} XML URLs to fetch`);
+
+    if (xmlUrls.length === 0) {
+      return null;
+    }
+
+    // Step 2: Fetch and parse Form 4 XMLs in batches
+    const batchSize = 5;
+    let totalPurchaseValue = 0;
+    let totalSaleValue = 0;
+    let purchaseCount = 0;
+    let saleCount = 0;
+    let filingsParsed = 0;
+
+    for (let i = 0; i < xmlUrls.length; i += batchSize) {
+      const batch = xmlUrls.slice(i, i + batchSize);
+      const results = await Promise.all(
+        batch.map(async (url) => {
+          try {
+            const res = await fetch(url, { headers: SEC_HEADERS });
+            if (!res.ok) { await res.text(); return []; }
+            const xml = await res.text();
+            return parseForm4Xml(xml);
+          } catch {
+            return [];
+          }
+        })
+      );
+
+      for (const txs of results) {
+        if (txs.length > 0) filingsParsed++;
+        for (const tx of txs) {
+          if (tx.transactionCode === "P") {
+            totalPurchaseValue += tx.totalValue;
+            purchaseCount++;
+          } else if (tx.transactionCode === "S") {
+            totalSaleValue += tx.totalValue;
+            saleCount++;
+          }
+        }
+      }
+
+      if (i + batchSize < xmlUrls.length) await sleep(600);
+    }
+
+    const totalValue = totalPurchaseValue + totalSaleValue;
+    const buyRatio = totalValue > 0 ? totalPurchaseValue / totalValue : 0.5;
+
+    // Score: High buy ratio = insiders buying = bullish
+    // > 0.35 buy ratio is notable (normally insiders sell more than buy)
+    let score: number;
+    if (buyRatio > 0.35) score = 1;       // Unusual buying
+    else if (buyRatio >= 0.15) score = 0;  // Normal range
+    else score = -1;                       // Heavy selling
+
+    const result: InsiderResult = {
+      totalPurchaseValue: Math.round(totalPurchaseValue),
+      totalSaleValue: Math.round(totalSaleValue),
+      purchaseCount,
+      saleCount,
+      buyRatio: Math.round(buyRatio * 1000) / 1000,
+      filingsParsed,
+      score,
+      daysScanned: 30,
+    };
+
+    console.log(`EDGAR: Parsed ${filingsParsed} filings. Purchases: ${purchaseCount} ($${Math.round(totalPurchaseValue/1000)}k), Sales: ${saleCount} ($${Math.round(totalSaleValue/1000)}k), Buy ratio: ${buyRatio.toFixed(3)}, Score: ${score}`);
+
+    return result;
+  } catch (error) {
+    console.error("EDGAR scraper error:", error);
+    return null;
+  }
+}
+
+function scoreInsider(buyRatio: number): number {
+  if (buyRatio > 0.35) return 1;
+  if (buyRatio >= 0.15) return 0;
+  return -1;
+}
+
+// ===================== END EDGAR SCRAPER =====================
+
 // Scoring functions
 function scoreVIX(v: number) { return v < 15 ? 1 : v <= 25 ? 0 : -1; }
 function scoreYieldCurve(s: number) { return s > 0.2 ? 1 : s >= -0.1 ? 0 : -1; }
@@ -76,13 +292,10 @@ function scoreDXY(current: number, previous: number) {
   return changePct < -0.5 ? 1 : changePct <= 0.5 ? 0 : -1;
 }
 function scoreBreadth(rspReturnPct: number, spyReturnPct: number): number {
-  // RSP vs SPY relative performance over ~50 days
-  // RSP outperforming = broad participation = bullish breadth
-  // SPY outperforming = narrow leadership = bearish breadth
   const spread = rspReturnPct - spyReturnPct;
-  if (spread > 1) return 1;   // RSP outperforming by >1% = broad breadth
-  if (spread >= -1) return 0;  // roughly in line
-  return -1;                   // SPY leading by >1% = narrow breadth
+  if (spread > 1) return 1;
+  if (spread >= -1) return 0;
+  return -1;
 }
 function scoreSeasonality(): number {
   const month = new Date().getMonth();
@@ -166,11 +379,12 @@ Deno.serve(async (req) => {
   }
 
   try {
-    // All fetches in parallel
+    // All fetches in parallel (EDGAR runs concurrently with FRED/AV)
     const [
       fredYieldSpread, fredCreditSpread, fredOil,
       fredVIX, fredPMI, fredSentiment, fredDXY,
       rspPrices, spyPrices,
+      insiderData,
     ] = await Promise.all([
       fetchFRED("T10Y2Y", fredKey).catch(() => null),
       fetchFRED("BAMLH0A0HYM2", fredKey).catch(() => null),
@@ -179,9 +393,9 @@ Deno.serve(async (req) => {
       fetchFRED("NAPM", fredKey).catch(() => null),
       fetchFRED("UMCSENT", fredKey).catch(() => null),
       fetchFREDSeries("DTWEXBGS", fredKey, 30).catch(() => []),
-      // Breadth proxy: RSP (equal-weight S&P 500) vs SPY (cap-weight)
       avKey ? fetchAVDaily("RSP", avKey).catch(() => []) : Promise.resolve([]),
       avKey ? fetchAVDaily("SPY", avKey).catch(() => []) : Promise.resolve([]),
+      fetchEdgarInsiderActivity().catch(() => null),
     ]);
 
     // M2 YoY calculation
@@ -250,15 +464,17 @@ Deno.serve(async (req) => {
       sentiment: sentimentValue !== null && !isNaN(sentimentValue) ? { value: sentimentValue } : null,
       seasonality: { month: seasonLabel, score: seasonScore },
       breadth: breadthData,
+      insider: insiderData as InsiderResult | null,
       fetchedAt: new Date().toISOString(),
     };
 
     // Compute signal scores
     const signalScores: Record<string, number> = {
       // Still mock (no free public API):
-      "insider": 0,
       "earnings": 1,
     };
+    if (insiderData) signalScores["insider"] = insiderData.score;
+    else signalScores["insider"] = 0;
     if (result.vix) signalScores["vix"] = scoreVIX(result.vix.value);
     if (result.yieldCurve) signalScores["yield-curve"] = scoreYieldCurve(result.yieldCurve.spread);
     if (result.creditSpread) signalScores["credit-spreads"] = scoreCreditSpread(result.creditSpread.bps);

@@ -3,6 +3,17 @@ import { supabase } from "@/integrations/supabase/client";
 import { getMockSignals, MacroSignal, SignalScore, computeComposite, CAPE_ELEVATED, CompositeResult } from "@/lib/macroSignals";
 import { useState, useMemo } from "react";
 
+export interface InsiderAPIData {
+  totalPurchaseValue: number;
+  totalSaleValue: number;
+  purchaseCount: number;
+  saleCount: number;
+  buyRatio: number;
+  filingsParsed: number;
+  score: number;
+  daysScanned: number;
+}
+
 export interface MacroAPIResponse {
   vix: { value: number } | null;
   oil: { value: number } | null;
@@ -14,6 +25,7 @@ export interface MacroAPIResponse {
   sentiment: { value: number } | null;
   seasonality: { month: string; score: number } | null;
   breadth: { rspReturn: number; spyReturn: number; spread: number; score: number } | null;
+  insider: InsiderAPIData | null;
   fetchedAt: string;
 }
 
@@ -110,6 +122,19 @@ export function applyLiveData(signals: MacroSignal[], data: MacroAPIResponse): M
             bullishCondition: "RSP > SPY (broad)",
             neutralCondition: "In line",
             bearishCondition: "SPY > RSP (narrow)",
+          };
+        }
+        return s;
+      case "insider":
+        if (data.insider) {
+          const score = data.insider.score as SignalScore;
+          const buyPct = Math.round(data.insider.buyRatio * 100);
+          const purchaseM = (data.insider.totalPurchaseValue / 1_000_000).toFixed(1);
+          const saleM = (data.insider.totalSaleValue / 1_000_000).toFixed(1);
+          return { ...s, value: `${buyPct}% buys`, score, description: `SEC Form 4 insider activity (${data.insider.daysScanned}d): ${data.insider.purchaseCount} purchases ($${purchaseM}M) vs ${data.insider.saleCount} sales ($${saleM}M). Buy ratio: ${buyPct}%. ${score === 1 ? "Unusual insider buying — bullish signal." : score === 0 ? "Normal buy/sell mix." : "Heavy insider selling — bearish signal."}`,
+            bullishCondition: "> 35% buy ratio",
+            neutralCondition: "15–35%",
+            bearishCondition: "< 15% buy ratio",
           };
         }
         return s;
