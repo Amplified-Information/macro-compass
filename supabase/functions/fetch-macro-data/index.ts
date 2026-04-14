@@ -724,6 +724,9 @@ Deno.serve(async (req) => {
     const inflationSignalWeights = [
       { id: "inflation", weight: 2 },
       { id: "oil", weight: 1.5 },
+      { id: "real-yield", weight: 1.5 },
+      { id: "rate-path", weight: 1.5 },
+      { id: "dxy", weight: 1 },
     ];
     let iSum = 0, iW = 0;
     for (const i of inflationSignalWeights) {
