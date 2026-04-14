@@ -41,6 +41,7 @@ export interface MacroAPIResponse {
   cape: { value: number; asOf?: string | null } | null;
   cadusd: { value: number; changePercent: number; asOf?: string | null } | null;
   inflation: { breakeven: number; breakevenPrev: number; breakevenDelta: number; oilMomentum13w: number; passThrough: number; score: number; asOf?: string | null } | null;
+  cbLiquidity: { fedTotal: number; fedWoW: number; fedWoWPct: number; bocTotal: number; bocWoW: number; bocWoWPct: number; combinedWoWPct: number; score: number; asOf?: string | null } | null;
   fetchedAt: string;
 }
 
@@ -79,6 +80,11 @@ function scoreInflation(breakeven: number, breakevenPrev: number, oilChangePct: 
 function scoreSentiment(v: number): SignalScore {
   if (v < 60) return 1;
   if (v > 100) return -1;
+  return 0;
+}
+function scoreCBLiquidity(combinedWoWPct: number): SignalScore {
+  if (combinedWoWPct > 0.1) return 1;       // Expanding — QE
+  if (combinedWoWPct < -0.1) return -1;      // Contracting — QT
   return 0;
 }
 
@@ -205,6 +211,17 @@ export function applyLiveData(signals: MacroSignal[], data: MacroAPIResponse): M
           const score = scoreInflation(data.inflation.breakeven, data.inflation.breakevenPrev, data.inflation.oilMomentum13w);
           const ptStr = data.inflation.passThrough > 0 ? `+${data.inflation.passThrough}` : `${data.inflation.passThrough}`;
           return { ...s, value: `${data.inflation.breakeven.toFixed(2)}%`, score, asOf: data.inflation.asOf ?? undefined, description: `5y5y breakeven at ${data.inflation.breakeven.toFixed(2)}% (Δ${data.inflation.breakevenDelta > 0 ? "+" : ""}${data.inflation.breakevenDelta.toFixed(2)}). Oil 30d momentum: ${data.inflation.oilMomentum13w > 0 ? "+" : ""}${data.inflation.oilMomentum13w.toFixed(1)}%. Est. CPI pass-through: ${ptStr}%. ${score === 1 ? "Inflation contained — benign." : score === 0 ? "Mixed inflation signals." : "Rising inflation pressure — headwind."}` };
+        }
+        return s;
+      case "cb-liquidity":
+        if (data.cbLiquidity) {
+          const score = scoreCBLiquidity(data.cbLiquidity.combinedWoWPct);
+          const fedT = (data.cbLiquidity.fedTotal / 1e6).toFixed(2);
+          const fedChg = data.cbLiquidity.fedWoWPct > 0 ? `+${data.cbLiquidity.fedWoWPct.toFixed(3)}` : data.cbLiquidity.fedWoWPct.toFixed(3);
+          const bocB = (data.cbLiquidity.bocTotal / 1e3).toFixed(1);
+          const bocChg = data.cbLiquidity.bocWoWPct > 0 ? `+${data.cbLiquidity.bocWoWPct.toFixed(3)}` : data.cbLiquidity.bocWoWPct.toFixed(3);
+          const combChg = data.cbLiquidity.combinedWoWPct > 0 ? `+${data.cbLiquidity.combinedWoWPct.toFixed(3)}` : data.cbLiquidity.combinedWoWPct.toFixed(3);
+          return { ...s, value: `${combChg}% WoW`, score, asOf: data.cbLiquidity.asOf ?? undefined, description: `Fed balance sheet: $${fedT}T (WoW ${fedChg}%). BoC total assets: C$${bocB}B (WoW ${bocChg}%). Combined WoW: ${combChg}%. ${score === 1 ? "Central banks expanding — QE liquidity tailwind." : score === 0 ? "Balance sheets roughly flat — neutral." : "Central banks contracting — QT liquidity headwind."}` };
         }
         return s;
       default:
