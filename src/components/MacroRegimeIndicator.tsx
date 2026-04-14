@@ -186,6 +186,8 @@ export function detectRegimeDetail(signals: MacroSignal[]): RegimeDetail {
     { id: "credit-spreads", weight: 1.5 },
     { id: "breadth", weight: 1 },
     { id: "insider", weight: 0.5 },
+    { id: "lei", weight: 1.5 },
+    { id: "jobless-claims", weight: 1.5 },
   ];
 
   let growthWeightedSum = 0;

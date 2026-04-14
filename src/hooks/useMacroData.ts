@@ -42,6 +42,11 @@ export interface MacroAPIResponse {
   cadusd: { value: number; changePercent: number; asOf?: string | null } | null;
   inflation: { breakeven: number; breakevenPrev: number; breakevenDelta: number; oilMomentum13w: number; passThrough: number; score: number; asOf?: string | null } | null;
   cbLiquidity: { fedTotal: number; fedWoW: number; fedWoWPct: number; bocTotal: number; bocWoW: number; bocWoWPct: number; combinedWoWPct: number; score: number; asOf?: string | null } | null;
+  joblessClaims: { value: number; asOf?: string | null } | null;
+  realYield: { value: number; asOf?: string | null } | null;
+  lei: { value: number; prevValue: number; momPct: number; score: number; asOf?: string | null } | null;
+  igSpread: { value: number; bps: number; asOf?: string | null } | null;
+  ratePath: { dgs2: number; dff: number; spread: number; score: number; asOf?: string | null } | null;
   fetchedAt: string;
 }
 
@@ -83,9 +88,34 @@ function scoreSentiment(v: number): SignalScore {
   return 0;
 }
 function scoreCBLiquidity(combinedWoWPct: number): SignalScore {
-  if (combinedWoWPct > 0.1) return 1;       // Expanding — QE
-  if (combinedWoWPct < -0.1) return -1;      // Contracting — QT
+  if (combinedWoWPct > 0.1) return 1;
+  if (combinedWoWPct < -0.1) return -1;
   return 0;
+}
+function scoreJoblessClaims(v: number): SignalScore {
+  if (v < 225) return 1;
+  if (v <= 300) return 0;
+  return -1;
+}
+function scoreRealYield(v: number): SignalScore {
+  if (v < 0.5) return 1;
+  if (v <= 2.0) return 0;
+  return -1;
+}
+function scoreLEI(momPct: number): SignalScore {
+  if (momPct > 0.1) return 1;
+  if (momPct >= -0.1) return 0;
+  return -1;
+}
+function scoreIGSpread(bps: number): SignalScore {
+  if (bps < 100) return 1;
+  if (bps <= 150) return 0;
+  return -1;
+}
+function scoreRatePath(spread: number): SignalScore {
+  if (spread < -0.25) return 1;
+  if (spread <= 0.25) return 0;
+  return -1;
 }
 
 export function applyLiveData(signals: MacroSignal[], data: MacroAPIResponse): MacroSignal[] {
@@ -222,6 +252,40 @@ export function applyLiveData(signals: MacroSignal[], data: MacroAPIResponse): M
           const bocChg = data.cbLiquidity.bocWoWPct > 0 ? `+${data.cbLiquidity.bocWoWPct.toFixed(3)}` : data.cbLiquidity.bocWoWPct.toFixed(3);
           const combChg = data.cbLiquidity.combinedWoWPct > 0 ? `+${data.cbLiquidity.combinedWoWPct.toFixed(3)}` : data.cbLiquidity.combinedWoWPct.toFixed(3);
           return { ...s, value: `${combChg}% WoW`, score, asOf: data.cbLiquidity.asOf ?? undefined, description: `Fed balance sheet: $${fedT}T (WoW ${fedChg}%). BoC total assets: C$${bocB}B (WoW ${bocChg}%). Combined WoW: ${combChg}%. ${score === 1 ? "Central banks expanding — QE liquidity tailwind." : score === 0 ? "Balance sheets roughly flat — neutral." : "Central banks contracting — QT liquidity headwind."}` };
+        }
+        return s;
+      case "jobless-claims":
+        if (data.joblessClaims) {
+          const v = data.joblessClaims.value;
+          const vk = v >= 1000 ? `${(v / 1000).toFixed(0)}k` : `${v}`;
+          const score = scoreJoblessClaims(v / 1000);
+          return { ...s, value: vk, score, asOf: data.joblessClaims.asOf ?? undefined, description: `Initial jobless claims at ${vk}. ${score === 1 ? "Labor market tight — well below warning levels." : score === 0 ? "Claims in normal range." : "Claims elevated — labor market deteriorating."}` };
+        }
+        return s;
+      case "real-yield":
+        if (data.realYield) {
+          const score = scoreRealYield(data.realYield.value);
+          return { ...s, value: `${data.realYield.value.toFixed(2)}%`, score, asOf: data.realYield.asOf ?? undefined, description: `10-year TIPS real yield at ${data.realYield.value.toFixed(2)}%. ${score === 1 ? "Low real rates — accommodative for equities." : score === 0 ? "Moderate real yields." : "High real yields — compressing P/E multiples."}` };
+        }
+        return s;
+      case "lei":
+        if (data.lei) {
+          const score = data.lei.score as SignalScore;
+          const momStr = data.lei.momPct > 0 ? `+${data.lei.momPct.toFixed(2)}` : data.lei.momPct.toFixed(2);
+          return { ...s, value: `${momStr}% MoM`, score, asOf: data.lei.asOf ?? undefined, description: `Conference Board LEI at ${data.lei.value.toFixed(1)} (MoM: ${momStr}%). ${score === 1 ? "LEI expanding — economy gaining momentum." : score === 0 ? "LEI flat — no clear direction." : "LEI declining — recession risk rising."}` };
+        }
+        return s;
+      case "ig-spreads":
+        if (data.igSpread) {
+          const score = scoreIGSpread(data.igSpread.bps);
+          return { ...s, value: `${data.igSpread.bps} bps`, score, asOf: data.igSpread.asOf ?? undefined, description: `IG corporate OAS at ${data.igSpread.bps} bps. ${score === 1 ? "Tight — no credit stress." : score === 0 ? "Moderate — watch for widening." : "Wide — early credit stress signal."}` };
+        }
+        return s;
+      case "rate-path":
+        if (data.ratePath) {
+          const score = data.ratePath.score as SignalScore;
+          const spStr = data.ratePath.spread > 0 ? `+${data.ratePath.spread.toFixed(2)}` : data.ratePath.spread.toFixed(2);
+          return { ...s, value: `${spStr}%`, score, asOf: data.ratePath.asOf ?? undefined, description: `2Y Treasury (${data.ratePath.dgs2.toFixed(2)}%) vs Fed Funds (${data.ratePath.dff.toFixed(2)}%), spread: ${spStr}%. ${score === 1 ? "Bond market pricing rate cuts — dovish tailwind." : score === 0 ? "Rates expected roughly steady." : "Hikes priced in — hawkish headwind."}` };
         }
         return s;
       default:

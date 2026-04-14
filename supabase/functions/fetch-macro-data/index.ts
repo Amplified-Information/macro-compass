@@ -528,16 +528,12 @@ function scoreYieldCurve(s: number) { return s > 0.2 ? 1 : s >= -0.1 ? 0 : -1; }
 function scoreCreditSpread(bps: number) { return bps < 350 ? 1 : bps <= 500 ? 0 : -1; }
 function scoreM2(yoy: number) { return yoy > 2 ? 1 : yoy >= -1 ? 0 : -1; }
 function scoreOil(v: number, changePct: number) {
-  // Level-based: extreme prices are bearish regardless of momentum
   if (v > 100) return -1;
-  // Momentum-based: rapid run-up is a leading bearish signal
   if (changePct > 15) return -1;
   if (changePct > 8) return 0;
-  // Moderate/falling prices with no run-up = bullish
   if (v < 85 && changePct < 8) return 1;
   return 0;
 }
-// CFNAI: > 0 = above-trend growth, < -0.7 = recession territory
 function scoreCFNAI(v: number) { return v > 0 ? 1 : v >= -0.7 ? 0 : -1; }
 function scoreSentiment(v: number) {
   if (v < 60) return 1;
@@ -560,29 +556,52 @@ function scoreSeasonality(): number {
   if (month === 8 || month === 9) return -1;
   return 0;
 }
-// NFCI: positive = tightening financial conditions, negative = loose
 function scoreNFCI(v: number): number {
-  if (v < -0.5) return 1;       // Loose conditions — bullish
-  if (v <= 0) return 0;          // Neutral
-  if (v <= 0.5) return -1;       // Tightening — bearish
-  return -1;                     // Crisis-level tightening
+  if (v < -0.5) return 1;
+  if (v <= 0) return 0;
+  if (v <= 0.5) return -1;
+  return -1;
 }
-// Inflation pass-through: combines breakeven inflation trend + oil momentum
 function scoreInflation(breakeven: number, breakevenPrev: number, oilChangePct: number): number {
-  const beDelta = breakeven - breakevenPrev; // rising = inflationary
-  // Bearish: breakeven rising AND oil surging
+  const beDelta = breakeven - breakevenPrev;
   if (beDelta > 0.15 && oilChangePct > 10) return -1;
   if (beDelta > 0.10 || oilChangePct > 15) return -1;
-  // Bullish: breakeven falling or stable AND oil calm
   if (beDelta < -0.05 && oilChangePct < 5) return 1;
   if (breakeven < 2.0 && oilChangePct < 5) return 1;
   return 0;
 }
 function scoreCADUSD(current: number, previous: number): number {
   const changePct = previous > 0 ? ((current - previous) / previous) * 100 : 0;
-  if (changePct < -0.5) return 1;   // CAD strengthening
-  if (changePct > 0.5) return -1;   // CAD weakening
+  if (changePct < -0.5) return 1;
+  if (changePct > 0.5) return -1;
   return 0;
+}
+// New signal scoring functions
+function scoreJoblessClaims(v: number): number {
+  if (v < 225) return 1;       // Tight labor market
+  if (v <= 300) return 0;      // Normal range
+  return -1;                   // Deteriorating
+}
+function scoreRealYield(v: number): number {
+  if (v < 0.5) return 1;      // Accommodative
+  if (v <= 2.0) return 0;     // Moderate
+  return -1;                  // Restrictive — compresses P/E
+}
+function scoreLEI(momPct: number): number {
+  if (momPct > 0.1) return 1;   // Expanding
+  if (momPct >= -0.1) return 0;  // Flat
+  return -1;                     // Contracting
+}
+function scoreIGSpread(bps: number): number {
+  if (bps < 100) return 1;      // Calm
+  if (bps <= 150) return 0;     // Moderate
+  return -1;                    // Stress building
+}
+function scoreRatePath(spread: number): number {
+  // spread = DGS2 - DFF; negative = cuts priced (dovish/bullish)
+  if (spread < -0.25) return 1;   // Cuts priced in
+  if (spread <= 0.25) return 0;   // Steady
+  return -1;                      // Hikes priced in
 }
 function getSeasonLabel(): string {
   const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
@@ -606,9 +625,14 @@ function computeComposite(signals: Record<string, number>): { score: number; reg
     (signals["sentiment"] ?? 0) * 0.5 +
     (signals["seasonality"] ?? 0) * 0.5 +
     (signals["nfci"] ?? 0) * 2 +
-    (signals["cb-liquidity"] ?? 0) * 2;
+    (signals["cb-liquidity"] ?? 0) * 2 +
+    (signals["jobless-claims"] ?? 0) * 2 +
+    (signals["real-yield"] ?? 0) * 2 +
+    (signals["lei"] ?? 0) * 2 +
+    (signals["ig-spreads"] ?? 0) * 1.5 +
+    (signals["rate-path"] ?? 0) * 1.5;
 
-  const totalPossible = 26;
+  const totalPossible = 35.5;
   const normalized = Math.max(-1, Math.min(1, weighted / totalPossible));
 
   let regime = "cash";
@@ -710,6 +734,8 @@ Deno.serve(async (req) => {
       yahooOil, capeData, cadSeries,
       breakevenSeries,
       fedBalanceSheet, bocAssets,
+      fredJoblessClaims, fredRealYield, fredLEI, fredIGSpread,
+      fredDGS2, fredDFF,
     ] = await Promise.all([
       fetchFRED("T10Y2Y", fredKey).catch(() => null),
       fetchFRED("BAMLH0A0HYM2", fredKey).catch(() => null),
@@ -718,7 +744,6 @@ Deno.serve(async (req) => {
       fetchFRED("CFNAI", fredKey).catch((e) => { console.error("CFNAI fetch error:", e); return null; }),
       fetchFRED("UMCSENT", fredKey).catch(() => null),
       fetchFREDSeries("DTWEXBGS", fredKey, 30).catch(() => []),
-      // Breadth: Wilshire 5000 (total market) vs SP500 (large-cap) from FRED
       fetchFREDSeries("SP500", fredKey, 60).catch(() => []),
       fetchFREDSeries("WILL5000PRFC", fredKey, 60).catch(() => []),
       fetchEdgarInsiderActivity().catch(() => null),
@@ -728,9 +753,15 @@ Deno.serve(async (req) => {
       fetchShillerCAPE().catch(() => null),
       fetchFREDSeries("DEXCAUS", fredKey, 5).catch(() => []),
       fetchFREDSeries("T5YIFR", fredKey, 30).catch(() => []),
-      // Central Bank Balance Sheets (weekly)
       fetchFREDSeries("WALCL", fredKey, 10).catch(() => []),
       fetchBoCTotalAssets().catch(() => null),
+      // New signals
+      fetchFRED("ICSA", fredKey).catch(() => null),
+      fetchFRED("DFII10", fredKey).catch(() => null),
+      fetchFREDSeries("USSLIND", fredKey, 5).catch(() => []),
+      fetchFRED("BAMLC0A0CM", fredKey).catch(() => null),
+      fetchFRED("DGS2", fredKey).catch(() => null),
+      fetchFRED("DFF", fredKey).catch(() => null),
     ]);
 
     // M2 YoY calculation
@@ -903,6 +934,41 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Process new signals
+    const joblessClaimsValue = fredJoblessClaims ? parseFloat(fredJoblessClaims.value) : null;
+    const joblessClaimsAsOf = fredJoblessClaims?.asOf ?? null;
+    const realYieldValue = fredRealYield ? parseFloat(fredRealYield.value) : null;
+    const realYieldAsOf = fredRealYield?.asOf ?? null;
+    const igSpreadVal = fredIGSpread ? parseFloat(fredIGSpread.value) : null;
+    const igSpreadAsOf = fredIGSpread?.asOf ?? null;
+    const dgs2Value = fredDGS2 ? parseFloat(fredDGS2.value) : null;
+    const dffValue = fredDFF ? parseFloat(fredDFF.value) : null;
+
+    // LEI MoM change
+    const leiObs = fredLEI as Array<{ date: string; value: string }>;
+    let leiData: { value: number; prevValue: number; momPct: number; score: number; asOf: string | null } | null = null;
+    if (Array.isArray(leiObs) && leiObs.length >= 2) {
+      const leiCurrent = parseFloat(leiObs[0].value);
+      const leiPrev = parseFloat(leiObs[1].value);
+      if (!isNaN(leiCurrent) && !isNaN(leiPrev) && leiPrev > 0) {
+        const momPct = ((leiCurrent - leiPrev) / leiPrev) * 100;
+        leiData = { value: leiCurrent, prevValue: leiPrev, momPct: Math.round(momPct * 100) / 100, score: scoreLEI(momPct), asOf: leiObs[0].date };
+      }
+    }
+
+    // Rate path: DGS2 - DFF spread
+    let ratePathData: { dgs2: number; dff: number; spread: number; score: number; asOf: string | null } | null = null;
+    if (dgs2Value !== null && !isNaN(dgs2Value) && dffValue !== null && !isNaN(dffValue)) {
+      const spread = dgs2Value - dffValue;
+      ratePathData = { dgs2: dgs2Value, dff: dffValue, spread: Math.round(spread * 100) / 100, score: scoreRatePath(spread), asOf: fredDGS2?.asOf ?? null };
+    }
+
+    console.log(`Jobless Claims: ${joblessClaimsValue}k as of ${joblessClaimsAsOf}`);
+    console.log(`Real Yield (TIPS): ${realYieldValue}% as of ${realYieldAsOf}`);
+    console.log(`LEI: ${leiData ? `${leiData.value} (MoM ${leiData.momPct}%)` : 'null'}`);
+    console.log(`IG Spreads: ${igSpreadVal} as of ${igSpreadAsOf}`);
+    console.log(`Rate Path: ${ratePathData ? `DGS2=${ratePathData.dgs2}, DFF=${ratePathData.dff}, spread=${ratePathData.spread}` : 'null'}`);
+
     const result = {
       vix: vixValue !== null && !isNaN(vixValue) ? { value: vixValue, asOf: vixAsOf } : null,
       yieldCurve: yieldSpread !== null && !isNaN(yieldSpread) ? { spread: yieldSpread, asOf: yieldAsOf } : null,
@@ -926,6 +992,12 @@ Deno.serve(async (req) => {
       cadusd: cadData,
       inflation: inflationData,
       cbLiquidity: cbLiquidity,
+      // New signals
+      joblessClaims: joblessClaimsValue !== null && !isNaN(joblessClaimsValue) ? { value: joblessClaimsValue, asOf: joblessClaimsAsOf } : null,
+      realYield: realYieldValue !== null && !isNaN(realYieldValue) ? { value: realYieldValue, asOf: realYieldAsOf } : null,
+      lei: leiData,
+      igSpread: igSpreadVal !== null && !isNaN(igSpreadVal) ? { value: igSpreadVal, bps: Math.round(igSpreadVal * 100), asOf: igSpreadAsOf } : null,
+      ratePath: ratePathData,
       fetchedAt: new Date().toISOString(),
     };
 
@@ -953,6 +1025,17 @@ Deno.serve(async (req) => {
     else signalScores["inflation"] = 0;
     if (cbLiquidity) signalScores["cb-liquidity"] = cbLiquidity.score;
     else signalScores["cb-liquidity"] = 0;
+    // New signals
+    if (result.joblessClaims) signalScores["jobless-claims"] = scoreJoblessClaims(result.joblessClaims.value / 1000);
+    else signalScores["jobless-claims"] = 0;
+    if (result.realYield) signalScores["real-yield"] = scoreRealYield(result.realYield.value);
+    else signalScores["real-yield"] = 0;
+    if (leiData) signalScores["lei"] = leiData.score;
+    else signalScores["lei"] = 0;
+    if (result.igSpread) signalScores["ig-spreads"] = scoreIGSpread(result.igSpread.bps);
+    else signalScores["ig-spreads"] = 0;
+    if (ratePathData) signalScores["rate-path"] = ratePathData.score;
+    else signalScores["rate-path"] = 0;
 
     const composite = computeComposite(signalScores);
 
@@ -964,6 +1047,8 @@ Deno.serve(async (req) => {
       { id: "credit-spreads", weight: 1.5 },
       { id: "breadth", weight: 1 },
       { id: "insider", weight: 0.5 },
+      { id: "lei", weight: 1.5 },
+      { id: "jobless-claims", weight: 1.5 },
     ];
     let gSum = 0, gW = 0;
     for (const g of growthSignalWeights) {

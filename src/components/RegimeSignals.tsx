@@ -24,7 +24,7 @@ function deriveRegimeSignals(signals: MacroSignal[]): RegimeSignalCard[] {
   };
 
   // Growth momentum: yield curve + CFNAI + EPS
-  const growthSignals = ["yield-curve", "pmi", "earnings"].map((id) => byId[id]?.score ?? 0);
+  const growthSignals = ["yield-curve", "pmi", "earnings", "lei", "jobless-claims"].map((id) => byId[id]?.score ?? 0);
   const growthAvg = growthSignals.reduce((a, b) => a + b, 0) / growthSignals.length;
   const growthCard: RegimeSignalCard = {
     label: "Growth momentum",
@@ -38,7 +38,7 @@ function deriveRegimeSignals(signals: MacroSignal[]): RegimeSignalCard[] {
   };
 
   // Liquidity: M2 + NFCI + credit spreads
-  const liqSignals = ["m2", "nfci", "credit-spreads"].map((id) => byId[id]?.score ?? 0);
+  const liqSignals = ["m2", "nfci", "credit-spreads", "ig-spreads"].map((id) => byId[id]?.score ?? 0);
   const liqAvg = liqSignals.reduce((a, b) => a + b, 0) / liqSignals.length;
   const liqCard: RegimeSignalCard = {
     label: "Liquidity",
