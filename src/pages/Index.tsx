@@ -9,6 +9,7 @@ import { RegimeMap } from "@/components/RegimeMap";
 import { CategoryRadar } from "@/components/CategoryRadar";
 import { DeploymentSparkline } from "@/components/DeploymentSparkline";
 import { InflationWidget } from "@/components/InflationWidget";
+import { RegimeSignals } from "@/components/RegimeSignals";
 import { TimeSlider } from "@/components/TimeSlider";
 import { Wifi, WifiOff, RefreshCw } from "lucide-react";
 import logo from "@/assets/logo.png";
@@ -92,6 +93,9 @@ export default function Index() {
             <ScoreBreakdown signals={signals} result={result} />
           </div>
         </div>
+
+        {/* Regime Signals */}
+        <RegimeSignals signals={signals} />
 
         {/* Regime Map */}
         <RegimeMap result={result} signals={signals} />
