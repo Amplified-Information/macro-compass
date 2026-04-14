@@ -9,7 +9,8 @@ import { RegimeMap } from "@/components/RegimeMap";
 import { CategoryRadar } from "@/components/CategoryRadar";
 import { DeploymentSparkline } from "@/components/DeploymentSparkline";
 import { TimeSlider } from "@/components/TimeSlider";
-import { Activity, Wifi, WifiOff } from "lucide-react";
+import { Wifi, WifiOff } from "lucide-react";
+import logo from "@/assets/logo.png";
 
 const CATEGORIES: SignalCategory[] = ["leading", "coincident", "sentiment"];
 
@@ -26,9 +27,7 @@ export default function Index() {
       <header className={`border-b ${isViewingHistory ? "border-signal-neutral/30" : "border-border"}`}>
         <div className="container max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-primary/10">
-              <Activity className="h-5 w-5 text-primary" />
-            </div>
+            <img src={logo} alt="Amplified Information" className="h-8" />
             <div>
               <h1 className="text-lg font-bold text-foreground tracking-tight">Macro Regime Dashboard</h1>
               <p className="text-xs text-muted-foreground">Weighted composite signal · Risk regime detector</p>
