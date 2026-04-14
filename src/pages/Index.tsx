@@ -9,7 +9,7 @@ import { RegimeMap } from "@/components/RegimeMap";
 import { CategoryRadar } from "@/components/CategoryRadar";
 import { DeploymentSparkline } from "@/components/DeploymentSparkline";
 import { TimeSlider } from "@/components/TimeSlider";
-import { Wifi, WifiOff } from "lucide-react";
+import { Wifi, WifiOff, RefreshCw } from "lucide-react";
 import logo from "@/assets/logo.png";
 
 const CATEGORIES: SignalCategory[] = ["leading", "coincident", "sentiment"];
@@ -19,6 +19,7 @@ export default function Index() {
     signals, result, isLoading, isLive, fetchedAt,
     snapshots, selectedSnapshotIdx, setSelectedSnapshotIdx, isViewingHistory,
     capeValue, capeElevated, capeAsOf,
+    refreshLive, isRefreshing,
   } = useMacroData();
 
   return (
