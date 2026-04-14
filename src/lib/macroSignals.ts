@@ -316,7 +316,7 @@ const REGIME_DIMENSION_MAP: { label: string; signalIds: string[]; tooltip: strin
   { label: "Macro Momentum", signalIds: ["yield-curve", "pmi", "earnings"], tooltip: "Yield Curve, PMI (CFNAI) & Earnings Revisions — tracks the direction and strength of the economic cycle." },
   { label: "Volatility", signalIds: ["vix"], tooltip: "VIX — measures expected market volatility. Low vol = complacency / risk-on; high vol = fear / risk-off." },
   { label: "Trend", signalIds: ["breadth", "seasonality"], tooltip: "Market Breadth & Seasonality — gauges how broad and persistent the current trend is." },
-  { label: "Liquidity", signalIds: ["m2", "nfci", "credit-spreads"], tooltip: "M2 Money Supply, NFCI & Credit Spreads — measures the availability and cost of capital in the financial system." },
+  { label: "Liquidity", signalIds: ["m2", "nfci", "credit-spreads", "cb-liquidity"], tooltip: "M2 Money Supply, NFCI, Credit Spreads & CB Balance Sheets — measures the availability and cost of capital in the financial system, including QE/QT flows." },
   { label: "Rates / Dollar", signalIds: ["dxy", "oil", "cadusd"], tooltip: "Dollar Index, Oil & CAD/USD — tracks monetary tightening pressure, input cost headwinds, and commodity-currency risk appetite." },
   { label: "Inflation", signalIds: ["inflation"], tooltip: "5y5y Breakeven + Oil Pass-Through — tracks whether oil price momentum is translating into inflation expectations, a leading headwind for equities." },
 ];
