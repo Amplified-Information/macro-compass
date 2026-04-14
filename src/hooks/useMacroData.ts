@@ -26,7 +26,7 @@ export interface EarningsAPIData {
 
 export interface MacroAPIResponse {
   vix: { value: number; asOf?: string | null } | null;
-  oil: { value: number; asOf?: string | null; source?: string } | null;
+  oil: { value: number; previousValue?: number | null; changePercent?: number; asOf?: string | null; source?: string } | null;
   yieldCurve: { spread: number; asOf?: string | null } | null;
   creditSpread: { value: number; bps: number; asOf?: string | null } | null;
   m2: { yoyPercent: number; asOf?: string | null } | null;
@@ -56,7 +56,13 @@ function scoreVIX(v: number): SignalScore { return v < 15 ? 1 : v <= 25 ? 0 : -1
 function scoreYieldCurve(spread: number): SignalScore { return spread > 0.2 ? 1 : spread >= -0.1 ? 0 : -1; }
 function scoreCreditSpread(bps: number): SignalScore { return bps < 350 ? 1 : bps <= 500 ? 0 : -1; }
 function scoreM2(yoy: number): SignalScore { return yoy > 2 ? 1 : yoy >= -1 ? 0 : -1; }
-function scoreOil(v: number): SignalScore { return v < 85 ? 1 : v <= 100 ? 0 : -1; }
+function scoreOil(v: number, changePct: number): SignalScore {
+  if (v > 100) return -1;
+  if (changePct > 15) return -1;
+  if (changePct > 8) return 0;
+  if (v < 85 && changePct < 8) return 1;
+  return 0;
+}
 function scoreCFNAI(v: number): SignalScore { return v > 0 ? 1 : v >= -0.7 ? 0 : -1; }
 function scoreDXY(changePct: number): SignalScore { return changePct < -0.5 ? 1 : changePct <= 0.5 ? 0 : -1; }
 function scoreNFCI(v: number): SignalScore { return v < -0.5 ? 1 : v <= 0 ? 0 : -1; }
@@ -105,9 +111,11 @@ export function applyLiveData(signals: MacroSignal[], data: MacroAPIResponse): M
         return s;
       case "oil":
         if (data.oil) {
-          const score = scoreOil(data.oil.value);
+          const changePct = data.oil.changePercent ?? 0;
+          const score = scoreOil(data.oil.value, changePct);
+          const chgStr = changePct !== 0 ? ` (30d: ${changePct > 0 ? "+" : ""}${changePct.toFixed(1)}%)` : "";
           const src = data.oil.source === "Yahoo Finance" ? "Yahoo Finance (CL=F)" : "FRED (DCOILWTICO)";
-          return { ...s, value: `$${data.oil.value.toFixed(2)}`, score, asOf: data.oil.asOf ?? undefined, source: src, description: `WTI crude at $${data.oil.value.toFixed(2)}. ${score === 1 ? "Stable — no supply shock." : score === 0 ? "Moderate." : "Spiking — supply pressure."}` };
+          return { ...s, value: `$${data.oil.value.toFixed(2)}`, score, asOf: data.oil.asOf ?? undefined, source: src, description: `WTI crude at $${data.oil.value.toFixed(2)}${chgStr}. ${score === 1 ? "Stable — no supply shock." : score === 0 ? "Moderate price or momentum." : "Rapid run-up or elevated price — leading headwind."}` };
         }
         return s;
       case "pmi":
