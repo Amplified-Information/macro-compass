@@ -39,6 +39,7 @@ export interface MacroAPIResponse {
   earnings: (EarningsAPIData & { asOf?: string | null }) | null;
   nfci: { value: number; asOf?: string | null } | null;
   cape: { value: number; asOf?: string | null } | null;
+  cadusd: { value: number; changePercent: number; asOf?: string | null } | null;
   fetchedAt: string;
 }
 
@@ -59,6 +60,7 @@ function scoreOil(v: number): SignalScore { return v < 85 ? 1 : v <= 100 ? 0 : -
 function scoreCFNAI(v: number): SignalScore { return v > 0 ? 1 : v >= -0.7 ? 0 : -1; }
 function scoreDXY(changePct: number): SignalScore { return changePct < -0.5 ? 1 : changePct <= 0.5 ? 0 : -1; }
 function scoreNFCI(v: number): SignalScore { return v < -0.5 ? 1 : v <= 0 ? 0 : -1; }
+function scoreCADUSD(changePct: number): SignalScore { return changePct < -0.5 ? 1 : changePct > 0.5 ? -1 : 0; }
 function scoreSentiment(v: number): SignalScore {
   if (v < 60) return 1;
   if (v > 100) return -1;
@@ -172,6 +174,13 @@ export function applyLiveData(signals: MacroSignal[], data: MacroAPIResponse): M
         if (data.nfci) {
           const score = scoreNFCI(data.nfci.value);
           return { ...s, value: data.nfci.value.toFixed(2), score, asOf: data.nfci.asOf ?? undefined, description: `Chicago Fed NFCI at ${data.nfci.value.toFixed(2)}. ${score === 1 ? "Loose financial conditions — bullish." : score === 0 ? "Neutral conditions." : "Tightening — credit stress rising."}` };
+        }
+        return s;
+      case "cadusd":
+        if (data.cadusd) {
+          const score = scoreCADUSD(data.cadusd.changePercent);
+          const chg = data.cadusd.changePercent > 0 ? `+${data.cadusd.changePercent.toFixed(2)}` : data.cadusd.changePercent.toFixed(2);
+          return { ...s, value: `${data.cadusd.value.toFixed(4)}`, score, asOf: data.cadusd.asOf ?? undefined, description: `CAD/USD at ${data.cadusd.value.toFixed(4)} (${chg}%). ${score === 1 ? "CAD strengthening — risk-on, commodity demand healthy." : score === 0 ? "Stable." : "CAD weakening — risk-off signal."}` };
         }
         return s;
       default:
