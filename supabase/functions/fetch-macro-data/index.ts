@@ -734,6 +734,8 @@ Deno.serve(async (req) => {
       yahooOil, capeData, cadSeries,
       breakevenSeries,
       fedBalanceSheet, bocAssets,
+      fredJoblessClaims, fredRealYield, fredLEI, fredIGSpread,
+      fredDGS2, fredDFF,
     ] = await Promise.all([
       fetchFRED("T10Y2Y", fredKey).catch(() => null),
       fetchFRED("BAMLH0A0HYM2", fredKey).catch(() => null),
@@ -742,7 +744,6 @@ Deno.serve(async (req) => {
       fetchFRED("CFNAI", fredKey).catch((e) => { console.error("CFNAI fetch error:", e); return null; }),
       fetchFRED("UMCSENT", fredKey).catch(() => null),
       fetchFREDSeries("DTWEXBGS", fredKey, 30).catch(() => []),
-      // Breadth: Wilshire 5000 (total market) vs SP500 (large-cap) from FRED
       fetchFREDSeries("SP500", fredKey, 60).catch(() => []),
       fetchFREDSeries("WILL5000PRFC", fredKey, 60).catch(() => []),
       fetchEdgarInsiderActivity().catch(() => null),
@@ -752,9 +753,15 @@ Deno.serve(async (req) => {
       fetchShillerCAPE().catch(() => null),
       fetchFREDSeries("DEXCAUS", fredKey, 5).catch(() => []),
       fetchFREDSeries("T5YIFR", fredKey, 30).catch(() => []),
-      // Central Bank Balance Sheets (weekly)
       fetchFREDSeries("WALCL", fredKey, 10).catch(() => []),
       fetchBoCTotalAssets().catch(() => null),
+      // New signals
+      fetchFRED("ICSA", fredKey).catch(() => null),
+      fetchFRED("DFII10", fredKey).catch(() => null),
+      fetchFREDSeries("USSLIND", fredKey, 5).catch(() => []),
+      fetchFRED("BAMLC0A0CM", fredKey).catch(() => null),
+      fetchFRED("DGS2", fredKey).catch(() => null),
+      fetchFRED("DFF", fredKey).catch(() => null),
     ]);
 
     // M2 YoY calculation
