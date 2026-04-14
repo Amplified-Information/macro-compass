@@ -862,6 +862,46 @@ Deno.serve(async (req) => {
     }
     console.log(`Inflation: breakeven=${inflationData?.breakeven}, delta=${inflationData?.breakevenDelta}, passThrough=${inflationData?.passThrough}%, score=${inflationData?.score}`);
 
+    // Central Bank Balance Sheet (QE/QT) — Fed (WALCL) + BoC (V36610)
+    let cbLiquidity: { fedTotal: number; fedWoW: number; fedWoWPct: number; bocTotal: number; bocWoW: number; bocWoWPct: number; combinedWoWPct: number; score: number; asOf: string | null } | null = null;
+    const fedObs = fedBalanceSheet as Array<{ date: string; value: string }>;
+    if (Array.isArray(fedObs) && fedObs.length >= 2) {
+      const fedCurrent = parseFloat(fedObs[0].value);
+      const fedPrev = parseFloat(fedObs[1].value);
+      let bocCurrent = 0, bocPrev = 0, bocWoW = 0, bocWoWPct = 0;
+      if (bocAssets && bocAssets.length >= 2) {
+        bocCurrent = bocAssets[0].value;
+        bocPrev = bocAssets[1].value;
+        bocWoW = bocCurrent - bocPrev;
+        bocWoWPct = bocPrev > 0 ? ((bocCurrent - bocPrev) / bocPrev) * 100 : 0;
+      }
+      if (!isNaN(fedCurrent) && !isNaN(fedPrev) && fedPrev > 0) {
+        const fedWoW = fedCurrent - fedPrev;
+        const fedWoWPct = ((fedCurrent - fedPrev) / fedPrev) * 100;
+        // Combined: weighted average (Fed ~90% of combined, BoC ~10%)
+        const combinedWoWPct = bocPrev > 0
+          ? (fedWoWPct * 0.85 + bocWoWPct * 0.15)
+          : fedWoWPct;
+        // Score: expanding = QE (bullish), contracting = QT (bearish)
+        let cbScore: number;
+        if (combinedWoWPct > 0.1) cbScore = 1;       // Expanding — QE
+        else if (combinedWoWPct < -0.1) cbScore = -1; // Contracting — QT
+        else cbScore = 0;                              // Flat
+        cbLiquidity = {
+          fedTotal: Math.round(fedCurrent),
+          fedWoW: Math.round(fedWoW),
+          fedWoWPct: Math.round(fedWoWPct * 1000) / 1000,
+          bocTotal: Math.round(bocCurrent),
+          bocWoW: Math.round(bocWoW),
+          bocWoWPct: Math.round(bocWoWPct * 1000) / 1000,
+          combinedWoWPct: Math.round(combinedWoWPct * 1000) / 1000,
+          score: cbScore,
+          asOf: fedObs[0].date,
+        };
+        console.log(`CB Liquidity: Fed $${(fedCurrent/1e6).toFixed(2)}T (WoW ${fedWoWPct > 0 ? "+" : ""}${fedWoWPct.toFixed(3)}%), BoC C$${(bocCurrent/1e3).toFixed(1)}B (WoW ${bocWoWPct > 0 ? "+" : ""}${bocWoWPct.toFixed(3)}%), combined ${combinedWoWPct > 0 ? "+" : ""}${combinedWoWPct.toFixed(3)}%, score=${cbScore}`);
+      }
+    }
+
     const result = {
       vix: vixValue !== null && !isNaN(vixValue) ? { value: vixValue, asOf: vixAsOf } : null,
       yieldCurve: yieldSpread !== null && !isNaN(yieldSpread) ? { spread: yieldSpread, asOf: yieldAsOf } : null,
@@ -884,6 +924,7 @@ Deno.serve(async (req) => {
       cape: capeData ? { value: capeData.value, asOf: capeData.asOf } : null,
       cadusd: cadData,
       inflation: inflationData,
+      cbLiquidity: cbLiquidity,
       fetchedAt: new Date().toISOString(),
     };
 
