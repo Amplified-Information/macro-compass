@@ -45,7 +45,7 @@ export function CategoryRadar({ signals }: Props) {
             <p className="font-semibold">How to read this chart</p>
             <p>Each axis shows the average score of signals in that category. The multiplier (2×, 1×, 0.5×) reflects the weight each category carries in the composite score.</p>
             <ul className="list-disc pl-3 space-y-1">
-              <li><span className="text-signal-bullish font-medium">Leading (2×)</span> — forward-looking indicators: yield curve, credit spreads, M2, NFCI, insider activity, oil, inflation pass-through, CB balance sheets</li>
+              <li><span className="text-signal-bullish font-medium">Leading (2×)</span> — forward-looking indicators: yield curve, credit spreads (HY & IG), M2, NFCI, insider activity, oil, inflation pass-through, CB balance sheets, jobless claims, real yield (TIPS), LEI, rate path</li>
               <li><span className="text-signal-coincident font-medium">Coincident (1×)</span> — real-time measures: VIX, CFNAI, DXY, EPS trends, CAD/USD, market breadth</li>
               <li><span className="text-signal-bearish font-medium">Sentiment (0.5×)</span> — survey-based gauges: consumer sentiment (UMich), seasonality</li>
             </ul>
