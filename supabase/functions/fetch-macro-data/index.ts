@@ -714,6 +714,8 @@ Deno.serve(async (req) => {
       { id: "insider", weight: 0.5 },
       { id: "lei", weight: 1.5 },
       { id: "jobless-claims", weight: 1.5 },
+      { id: "vix", weight: 1.5 },
+      { id: "nfci", weight: 1 },
     ];
     let gSum = 0, gW = 0;
     for (const g of growthSignalWeights) {

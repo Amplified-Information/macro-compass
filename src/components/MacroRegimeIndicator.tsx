@@ -161,6 +161,9 @@ function generateNarrative(
   const credit = byId["credit-spreads"];
   if (credit && credit.score === 1) drivers.push("credit spreads still tight");
   else if (credit && credit.score === -1) drivers.push("credit spreads widening");
+  const vix = byId["vix"];
+  if (vix && vix.score === -1) drivers.push("VIX elevated — stress in real-time");
+  else if (vix && vix.score === 1) drivers.push("VIX calm");
 
   if (drivers.length > 0) {
     narrative += ` ${drivers.join(", ")}.`;
@@ -188,6 +191,8 @@ export function detectRegimeDetail(signals: MacroSignal[]): RegimeDetail {
     { id: "insider", weight: 0.5 },
     { id: "lei", weight: 1.5 },
     { id: "jobless-claims", weight: 1.5 },
+    { id: "vix", weight: 1.5 },        // Real-time risk — elevated VIX signals growth stress
+    { id: "nfci", weight: 1 },          // Financial conditions tightening = growth headwind
   ];
 
   let growthWeightedSum = 0;
