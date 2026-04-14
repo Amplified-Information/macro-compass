@@ -586,6 +586,7 @@ Deno.serve(async (req) => {
       fredVIX, fredCFNAI, fredSentiment, fredDXY,
       sp500Series, wilshire5000Series,
       insiderData, earningsData, fredNFCI,
+      yahooOil,
     ] = await Promise.all([
       fetchFRED("T10Y2Y", fredKey).catch(() => null),
       fetchFRED("BAMLH0A0HYM2", fredKey).catch(() => null),
@@ -600,6 +601,7 @@ Deno.serve(async (req) => {
       fetchEdgarInsiderActivity().catch(() => null),
       fetchEdgarEarningsRevisions().catch(() => null),
       fetchFRED("NFCI", fredKey).catch(() => null),
+      fetchYahooOilPrice().catch(() => null),
     ]);
 
     // M2 YoY calculation
