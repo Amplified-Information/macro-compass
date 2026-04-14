@@ -15,6 +15,7 @@ export interface MacroSignal {
   bearishCondition: string;
   source?: string;
   tooltip?: string;
+  asOf?: string;
 }
 
 export interface CompositeResult {

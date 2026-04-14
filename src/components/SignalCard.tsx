@@ -71,9 +71,14 @@ export function SignalCard({ signal }: { signal: MacroSignal }) {
 
       <p className="text-xs text-muted-foreground leading-relaxed">{signal.description}</p>
 
-      {signal.source && (
-        <p className="text-[10px] font-mono text-muted-foreground/60">📡 {signal.source}</p>
-      )}
+      <div className="flex items-center justify-between text-[10px] font-mono text-muted-foreground/60">
+        {signal.source && <span>📡 {signal.source}</span>}
+        {signal.asOf && (
+          <span className="text-muted-foreground/50">
+            as of {new Date(signal.asOf + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+          </span>
+        )}
+      </div>
 
       <div className="grid grid-cols-3 gap-1 text-[10px] font-mono">
         <div className={`rounded px-1.5 py-1 text-center ${signal.score === 1 ? "bg-signal-bullish/10 text-signal-bullish border border-signal-bullish/30" : "bg-secondary text-muted-foreground"}`}>

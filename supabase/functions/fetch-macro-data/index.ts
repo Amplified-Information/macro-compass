@@ -14,7 +14,7 @@ interface AVTimeSeriesDaily {
   "Time Series (Daily)"?: Record<string, { "4. close": string }>;
 }
 
-async function fetchFRED(seriesId: string, apiKey: string): Promise<string | null> {
+async function fetchFRED(seriesId: string, apiKey: string): Promise<{ value: string; asOf: string } | null> {
   const url = new URL(FRED_BASE);
   url.searchParams.set("series_id", seriesId);
   url.searchParams.set("api_key", apiKey);
@@ -25,7 +25,7 @@ async function fetchFRED(seriesId: string, apiKey: string): Promise<string | nul
   if (!res.ok) throw new Error(`FRED API error for ${seriesId}: ${res.status}`);
   const data: FREDResponse = await res.json();
   const obs = data.observations?.find((o) => o.value !== ".");
-  return obs?.value ?? null;
+  return obs ? { value: obs.value, asOf: obs.date } : null;
 }
 
 async function fetchFREDSeries(seriesId: string, apiKey: string, limit: number): Promise<Array<{ date: string; value: string }>> {
