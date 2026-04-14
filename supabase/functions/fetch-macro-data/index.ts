@@ -757,18 +757,14 @@ Deno.serve(async (req) => {
       inflationScore: Math.round(inflationScoreAxis * 1000) / 1000,
     };
 
-    // Add regimeDetail to result
+    // Add regimeDetail and signalScores to response (canonical source of truth)
     (result as any).regimeDetail = regimeDetail;
+    (result as any).signalScores = signalScores;
 
-    // Save snapshot
+    // Save snapshot (reuse existing client)
     try {
-      const { createClient } = await import("https://esm.sh/@supabase/supabase-js@2");
-      const supabase = createClient(
-        Deno.env.get("SUPABASE_URL")!,
-        Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-      );
 
-      await supabase.from("macro_snapshots").insert({
+      await supabaseClient.from("macro_snapshots").insert({
         snapshot_data: result,
         composite_score: parseFloat(composite.score.toFixed(4)),
         regime: composite.regime,
