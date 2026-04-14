@@ -20,6 +20,45 @@ const DEPLOYMENT_TIERS = [
 
 // ... keep existing code (describeArc function)
 
+function CompositeExplainer() {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <div className="relative inline-block">
+      <button
+        onClick={() => setOpen(!open)}
+        className="text-muted-foreground hover:text-foreground transition-colors"
+        aria-label="How the composite score works"
+      >
+        <Info className="h-4 w-4" />
+      </button>
+      {open && (
+        <div className="absolute left-0 top-7 z-50 w-80 rounded-lg border bg-card p-4 shadow-lg space-y-2 text-xs text-muted-foreground leading-relaxed">
+          <p className="text-foreground font-medium text-sm">How it works</p>
+          <p>
+            The composite score aggregates <span className="text-foreground font-medium">20 macro signals</span> — spanning leading indicators, coincident data, and market sentiment — into a single number from <span className="font-mono">−1.00</span> to <span className="font-mono">+1.00</span>.
+          </p>
+          <p>
+            Each signal is scored continuously between −1 and +1, then multiplied by its category weight. The raw weighted sum is normalized by the maximum possible score (<span className="font-mono">35.5</span>).
+          </p>
+          <div className="grid grid-cols-2 gap-1.5 pt-1">
+            {REGIMES.map((regime) => (
+              <div key={regime.label} className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: regime.color }} />
+                <span className="font-mono text-[10px]">{regime.range[0].toFixed(1)} to {regime.range[1].toFixed(1)}</span>
+                <span className="text-[10px]">{regime.label}</span>
+              </div>
+            ))}
+          </div>
+          <p className="text-[10px] italic pt-1">
+            The gauge needle and regime label update in real time as underlying data changes.
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function DeploymentLegend({ capeDampened }: { capeDampened: boolean }) {
   const [open, setOpen] = useState(false);
 
@@ -102,7 +141,10 @@ export function CompositeGauge({ result }: { result: CompositeResult }) {
     <div className="rounded-lg border bg-card p-6 space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-lg font-semibold text-foreground">Composite Macro Score</h2>
+          <div className="flex items-center gap-2">
+            <h2 className="text-lg font-semibold text-foreground">Composite Macro Score</h2>
+            <CompositeExplainer />
+          </div>
           <p className="text-sm text-muted-foreground mt-1">Weighted regime indicator across all signals</p>
         </div>
         <div className={`text-4xl font-mono font-bold ${scoreColor}`}>
