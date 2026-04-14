@@ -626,8 +626,19 @@ Deno.serve(async (req) => {
     const yieldAsOf = fredYieldSpread?.asOf ?? null;
     const creditSpreadVal = fredCreditSpread ? parseFloat(fredCreditSpread.value) : null;
     const creditAsOf = fredCreditSpread?.asOf ?? null;
-    const oilPrice = fredOil ? parseFloat(fredOil.value) : null;
-    const oilAsOf = fredOil?.asOf ?? null;
+    // Oil: prefer Yahoo Finance (near-real-time) over FRED (1-2 day lag)
+    let oilPrice: number | null = null;
+    let oilAsOf: string | null = null;
+    let oilSource = "FRED";
+    if (yahooOil) {
+      oilPrice = yahooOil.value;
+      oilAsOf = yahooOil.asOf;
+      oilSource = "Yahoo Finance";
+    } else if (fredOil) {
+      oilPrice = parseFloat(fredOil.value);
+      oilAsOf = fredOil.asOf;
+    }
+    console.log(`Oil: $${oilPrice} as of ${oilAsOf} (source: ${oilSource})`);
     const cfnaiValue = fredCFNAI ? parseFloat(fredCFNAI.value) : null;
     const cfnaiAsOf = fredCFNAI?.asOf ?? null;
     const sentimentValue = fredSentiment ? parseFloat(fredSentiment.value) : null;
