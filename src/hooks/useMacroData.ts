@@ -34,7 +34,7 @@ export interface MacroAPIResponse {
   pmi: { value: number; asOf?: string | null } | null;
   sentiment: { value: number; asOf?: string | null } | null;
   seasonality: { month: string; score: number; asOf?: string | null } | null;
-  breadth: { sp500Return: number; djiaReturn: number; spread: number; score: number; asOf?: string | null } | null;
+  breadth: { wilshireReturn: number; sp500Return: number; spread: number; score: number; asOf?: string | null } | null;
   insider: (InsiderAPIData & { asOf?: string | null }) | null;
   earnings: (EarningsAPIData & { asOf?: string | null }) | null;
   nfci: { value: number; asOf?: string | null } | null;
@@ -139,10 +139,10 @@ export function applyLiveData(signals: MacroSignal[], data: MacroAPIResponse): M
         if (data.breadth) {
           const score = data.breadth.score as SignalScore;
           const spread = data.breadth.spread > 0 ? `+${data.breadth.spread}` : `${data.breadth.spread}`;
-          return { ...s, value: `${spread}%`, score, asOf: data.breadth.asOf ?? undefined, description: `S&P 500 vs DJIA 40-day relative spread: ${spread}%. S&P 500 ${data.breadth.sp500Return > 0 ? "+" : ""}${data.breadth.sp500Return}% vs DJIA ${data.breadth.djiaReturn > 0 ? "+" : ""}${data.breadth.djiaReturn}%. ${score === 1 ? "S&P 500 outperforming DJIA — broader participation beyond top 30." : score === 0 ? "Roughly in line — neutral breadth." : "DJIA leading S&P 500 — narrow mega-cap leadership."}`,
-            bullishCondition: "SP500 > DJIA (broad)",
+          return { ...s, value: `${spread}%`, score, asOf: data.breadth.asOf ?? undefined, description: `Wilshire 5000 vs S&P 500 40-day relative spread: ${spread}%. Wilshire ${data.breadth.wilshireReturn > 0 ? "+" : ""}${data.breadth.wilshireReturn}% vs S&P 500 ${data.breadth.sp500Return > 0 ? "+" : ""}${data.breadth.sp500Return}%. ${score === 1 ? "Wilshire outperforming — small/mid-caps participating, broad rally." : score === 0 ? "Roughly in line — neutral breadth." : "S&P 500 leading — narrow large-cap leadership."}`,
+            bullishCondition: "Wilshire > SP500 (broad)",
             neutralCondition: "In line",
-            bearishCondition: "DJIA > SP500 (narrow)",
+            bearishCondition: "SP500 > Wilshire (narrow)",
           };
         }
         return s;

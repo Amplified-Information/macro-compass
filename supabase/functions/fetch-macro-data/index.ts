@@ -510,8 +510,8 @@ function scoreDXY(current: number, previous: number) {
   const changePct = previous > 0 ? ((current - previous) / previous) * 100 : 0;
   return changePct < -0.5 ? 1 : changePct <= 0.5 ? 0 : -1;
 }
-function scoreBreadth(rspReturnPct: number, spyReturnPct: number): number {
-  const spread = rspReturnPct - spyReturnPct;
+function scoreBreadth(wilshireReturnPct: number, sp500ReturnPct: number): number {
+  const spread = wilshireReturnPct - sp500ReturnPct;
   if (spread > 1) return 1;
   if (spread >= -1) return 0;
   return -1;
@@ -629,9 +629,9 @@ Deno.serve(async (req) => {
       fetchFRED("CFNAI", fredKey).catch((e) => { console.error("CFNAI fetch error:", e); return null; }),
       fetchFRED("UMCSENT", fredKey).catch(() => null),
       fetchFREDSeries("DTWEXBGS", fredKey, 30).catch(() => []),
-      // Breadth: SP500 (500 stocks) vs DJIA (30 stocks) from FRED
+      // Breadth: Wilshire 5000 (total market) vs SP500 (large-cap) from FRED
       fetchFREDSeries("SP500", fredKey, 60).catch(() => []),
-      fetchFREDSeries("DJIA", fredKey, 60).catch(() => []),
+      fetchFREDSeries("WILL5000INDFC", fredKey, 60).catch(() => []),
       fetchEdgarInsiderActivity().catch(() => null),
       fetchEdgarEarningsRevisions().catch(() => null),
       fetchFRED("NFCI", fredKey).catch(() => null),
@@ -693,31 +693,31 @@ Deno.serve(async (req) => {
       dxyAsOf = dxyObs[0].date;
     }
 
-    // Breadth: SP500 (broad 500) vs DJIA (concentrated 30) from FRED
-    // If SP500 outperforms DJIA, broader participation beyond mega-caps
-    let breadthData: { sp500Return: number; djiaReturn: number; spread: number; score: number; asOf: string | null } | null = null;
+    // Breadth: Wilshire 5000 (total market ~3500 stocks) vs SP500 (large-cap 500)
+    // If Wilshire outperforms SP500, smaller/mid-cap stocks participating = broad breadth
+    let breadthData: { wilshireReturn: number; sp500Return: number; spread: number; score: number; asOf: string | null } | null = null;
     const sp5 = sp500Series as Array<{ date: string; value: string }>;
-    const dji = wilshire5000Series as Array<{ date: string; value: string }>;
+    const w5k = wilshire5000Series as Array<{ date: string; value: string }>;
     const lookback = 40;
-    if (Array.isArray(sp5) && Array.isArray(dji) && sp5.length > lookback && dji.length > lookback) {
+    if (Array.isArray(sp5) && Array.isArray(w5k) && sp5.length > lookback && w5k.length > lookback) {
       const sp5Recent = parseFloat(sp5[0].value);
       const sp5Old = parseFloat(sp5[lookback].value);
-      const djiRecent = parseFloat(dji[0].value);
-      const djiOld = parseFloat(dji[lookback].value);
-      if (!isNaN(sp5Recent) && !isNaN(sp5Old) && sp5Old > 0 && !isNaN(djiRecent) && !isNaN(djiOld) && djiOld > 0) {
+      const w5kRecent = parseFloat(w5k[0].value);
+      const w5kOld = parseFloat(w5k[lookback].value);
+      if (!isNaN(sp5Recent) && !isNaN(sp5Old) && sp5Old > 0 && !isNaN(w5kRecent) && !isNaN(w5kOld) && w5kOld > 0) {
         const sp500Ret = ((sp5Recent - sp5Old) / sp5Old) * 100;
-        const djiaRet = ((djiRecent - djiOld) / djiOld) * 100;
-        const spread = sp500Ret - djiaRet;
+        const wilshireRet = ((w5kRecent - w5kOld) / w5kOld) * 100;
+        const spread = wilshireRet - sp500Ret;
         breadthData = {
+          wilshireReturn: Math.round(wilshireRet * 100) / 100,
           sp500Return: Math.round(sp500Ret * 100) / 100,
-          djiaReturn: Math.round(djiaRet * 100) / 100,
           spread: Math.round(spread * 100) / 100,
-          score: scoreBreadth(sp500Ret, djiaRet),
+          score: scoreBreadth(wilshireRet, sp500Ret),
           asOf: sp5[0].date,
         };
       }
     }
-    console.log(`Breadth: SP500 obs=${sp5?.length ?? 0}, DJIA obs=${dji?.length ?? 0}, data=${breadthData ? JSON.stringify(breadthData) : 'null'}`);
+    console.log(`Breadth: SP500 obs=${sp5?.length ?? 0}, Wilshire obs=${w5k?.length ?? 0}, data=${breadthData ? JSON.stringify(breadthData) : 'null'}`);
 
     // Seasonality
     const seasonScore = scoreSeasonality();
