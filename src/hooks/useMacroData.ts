@@ -139,7 +139,7 @@ function fallbackScore(id: string, data: MacroAPIResponse): SignalScore | null {
     case "earnings": return data.earnings ? (data.earnings.score as SignalScore) : null;
     case "seasonality": return data.seasonality ? (data.seasonality.score as SignalScore) : null;
     case "breadth": return data.breadth ? (data.breadth.score as SignalScore) : null;
-    case "jobless-claims": return data.joblessClaims ? scoreJoblessClaims(data.joblessClaims.value / 1000) : null;
+    case "jobless-claims": return data.joblessClaims ? scoreJoblessClaims(data.joblessClaims.value) : null;
     case "real-yield": return data.realYield ? scoreRealYield(data.realYield.value) : null;
     case "lei": return data.lei ? (data.lei.score as SignalScore) : null;
     case "ig-spreads": return data.igSpread ? scoreIGSpread(data.igSpread.bps) : null;
@@ -155,7 +155,11 @@ export function applyLiveData(signals: MacroSignal[], data: MacroAPIResponse): M
   const mapped = signals.map((s) => {
     // Get score: prefer server-computed, then fallback
     const getScore = (id: string, fallback: () => SignalScore): SignalScore => {
-      if (serverScores && id in serverScores) return serverScores[id] as SignalScore;
+      if (serverScores && id in serverScores) {
+        const raw = serverScores[id];
+        // Quantize continuous server scores to discrete -1/0/1 for UI compatibility
+        return (raw > 0.33 ? 1 : raw < -0.33 ? -1 : 0) as SignalScore;
+      }
       return fallback();
     };
 

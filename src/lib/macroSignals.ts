@@ -383,7 +383,7 @@ const REGIME_DIMENSION_MAP: { label: string; signalIds: string[]; tooltip: strin
   { label: "Risk Appetite", signalIds: ["vix", "breadth", "insider", "sentiment", "seasonality"], tooltip: "VIX, Market Breadth, Insider Activity, Consumer Sentiment & Seasonality — measures market stress and positioning." },
   { label: "Liquidity", signalIds: ["m2", "nfci", "credit-spreads", "ig-spreads", "cb-liquidity"], tooltip: "M2 Money Supply, NFCI, HY & IG Credit Spreads, CB Balance Sheets — measures the availability and cost of capital." },
   { label: "Rates / Dollar", signalIds: ["dxy", "cadusd", "real-yield", "rate-path"], tooltip: "Dollar Index, CAD/USD, 10-yr Real Yield & Rate Path — tracks monetary tightening pressure and rate expectations." },
-  { label: "Inflation", signalIds: ["inflation", "oil", "real-yield", "rate-path", "dxy"], tooltip: "Breakeven Inflation, Oil Momentum, Real Yield, Rate Path & DXY — tracks price pressure from multiple angles." },
+  { label: "Inflation", signalIds: ["inflation", "oil", "rate-path", "dxy"], tooltip: "Breakeven Inflation, Oil Momentum, Rate Path & DXY — tracks price pressure from multiple angles." },
 ];
 
 export function computeRegimeDimensions(signals: MacroSignal[]): RegimeDimension[] {

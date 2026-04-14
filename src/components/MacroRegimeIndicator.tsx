@@ -197,8 +197,6 @@ export function detectRegimeDetail(signals: MacroSignal[]): RegimeDetail {
     { id: "cb-liquidity", weight: 1 },   // Central bank liquidity → growth support
     { id: "ig-spreads", weight: 1 },     // IG credit stress → early growth warning
     { id: "cadusd", weight: 0.5 },       // Commodity/risk demand proxy
-    { id: "sentiment", weight: 0.5 },    // Consumer demand signal (contrarian)
-    { id: "seasonality", weight: 0.25 }, // Calendar effect — low weight
   ];
 
   let growthWeightedSum = 0;
