@@ -1,37 +1,37 @@
 
 
-## Plan: Add Last-Updated Timestamps to Dashboard and Each Metric
+# Add CAD/USD Coincident Signal
 
-### Problem
-The dashboard shows a single `fetchedAt` time in the header but doesn't indicate when each individual metric was last updated. FRED data series have their own observation dates (which can lag days/weeks), and SEC data has its own freshness.
+## Overview
+Add the Canadian Dollar (CAD/USD) as a new coincident signal. Canada is a major US trading partner and commodity exporter — CAD strength/weakness reflects global risk appetite and commodity demand. A weakening CAD (stronger USD) signals risk-off; a strengthening CAD signals risk-on.
 
-### Approach
+## Data Source
+FRED series **DEXCAUS** — Canada / U.S. Foreign Exchange Rate (daily, CAD per 1 USD). A rising value means CAD is weakening (more CAD needed per USD). We compare current vs prior observation to determine direction.
 
-**1. Edge Function — return per-metric dates**
-- Modify `fetchFRED` to return both value AND observation date (not just the value string)
-- Include an `asOf` date field in each metric object in the API response (e.g., `vix: { value: 26.1, asOf: "2026-04-11" }`)
-- For EDGAR-based signals (insider, earnings), include the date range scanned
-- For seasonality, use current date
+## Scoring Logic
+- **Bullish (+1)**: CAD strengthening (DEXCAUS falling > 0.5%)
+- **Neutral (0)**: Stable (change within ±0.5%)  
+- **Bearish (-1)**: CAD weakening (DEXCAUS rising > 0.5%)
 
-**2. API Response Interface (`useMacroData.ts`)**
-- Add optional `asOf?: string` to each metric in `MacroAPIResponse` (vix, oil, yieldCurve, creditSpread, m2, dxy, pmi, sentiment, nfci)
-- Add `asOf` fields to insider/earnings interfaces
+## Changes
 
-**3. MacroSignal type (`macroSignals.ts`)**
-- Add `asOf?: string` to the `MacroSignal` interface
+### 1. Edge Function (`supabase/functions/fetch-macro-data/index.ts`)
+- Fetch `DEXCAUS` series (2 observations) alongside existing FRED calls
+- Add `scoreCADUSD(current, previous)` function
+- Add `cadusd` field to the response: `{ value, changePercent, asOf }`
+- Add `cadusd` to `signalScores` and update `computeComposite` to include it at 1x weight
+- Update `totalPossible` from 18 to 19
 
-**4. Apply live data (`useMacroData.ts`)**
-- Pass through `asOf` from each API response field into the signal object in `applyLiveData`
+### 2. Frontend Types (`src/hooks/useMacroData.ts`)
+- Add `cadusd` to `MacroAPIResponse` interface
+- Add `scoreCADUSD` function
+- Add `case "cadusd"` to `applyLiveData` switch
 
-**5. SignalCard UI (`SignalCard.tsx`)**
-- Display a small "Updated: Apr 11" or "as of Apr 11" line below the source, using relative or short date formatting
+### 3. Signal Definition (`src/lib/macroSignals.ts`)
+- Add `cadusd` signal to `getMockSignals()` as a coincident signal with weight 1
+- Update regime dimension map — add `cadusd` to the "Rates / Dollar" dimension (alongside DXY and Oil)
 
-**6. Dashboard header (`Index.tsx`)**
-- Already shows `fetchedAt` time — enhance to show "Data fetched: Apr 14, 2:30 PM" more prominently
-
-### Files modified
-- `supabase/functions/fetch-macro-data/index.ts` — return observation dates per metric
-- `src/lib/macroSignals.ts` — add `asOf` to `MacroSignal` interface
-- `src/hooks/useMacroData.ts` — update `MacroAPIResponse` types, pass `asOf` through in `applyLiveData`
-- `src/components/SignalCard.tsx` — render per-metric last-updated date
+### 4. Composite Weight Update
+- Total possible weight increases from 18 to 19 (adding 1× coincident)
+- Update both edge function and frontend `computeComposite`
 
