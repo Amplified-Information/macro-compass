@@ -105,7 +105,7 @@ export default function Index() {
         <RegimeMap result={result} signals={signals} />
 
         {/* Inflation Pass-Through Widget */}
-        <InflationWidget data={liveData ?? null} />
+        <InflationWidget data={isViewingHistory && currentSnapshot ? currentSnapshot.snapshot_data : (liveData ?? null)} />
 
         {/* Signal groups */}
         {CATEGORIES.map((cat) => (
