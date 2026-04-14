@@ -282,5 +282,7 @@ export function useMacroData() {
     capeValue,
     capeElevated,
     capeAsOf: liveData?.cape?.asOf ?? null,
+    refreshLive,
+    isRefreshing,
   };
 }
