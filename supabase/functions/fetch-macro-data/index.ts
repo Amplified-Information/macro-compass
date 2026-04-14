@@ -84,10 +84,16 @@ async function fetchYahooOilPrice(): Promise<{ value: number; asOf: string } | n
     const meta = data?.chart?.result?.[0]?.meta;
     if (!meta?.regularMarketPrice) return null;
     const price = meta.regularMarketPrice;
-    // regularMarketTime is a unix timestamp
-    const marketTime = meta.regularMarketTime
-      ? new Date(meta.regularMarketTime * 1000).toISOString().slice(0, 10)
-      : new Date().toISOString().slice(0, 10);
+    // regularMarketTime is a unix timestamp — format in US Eastern (NYMEX timezone)
+    let marketTime: string;
+    if (meta.regularMarketTime) {
+      const d = new Date(meta.regularMarketTime * 1000);
+      const parts = d.toLocaleDateString("en-CA", { timeZone: "America/New_York" }); // YYYY-MM-DD
+      marketTime = parts;
+    } else {
+      const now = new Date();
+      marketTime = now.toLocaleDateString("en-CA", { timeZone: "America/New_York" });
+    }
     console.log(`Yahoo Finance CL=F: $${price} as of ${marketTime}`);
     return { value: price, asOf: marketTime };
   } catch (e) {
