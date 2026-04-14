@@ -6,17 +6,14 @@ interface SignalSparklineProps {
 export function SignalSparkline({ scores }: SignalSparklineProps) {
   if (scores.length < 2) return null;
 
-  const width = 120;
   const height = 28;
   const padding = 2;
 
   const n = scores.length;
-  const xStep = (width - padding * 2) / (n - 1);
 
   // Map score (-1..1) to y (top = bullish, bottom = bearish)
   const yForScore = (s: number) => padding + ((1 - s) / 2) * (height - padding * 2);
-
-  const points = scores.map((s, i) => `${padding + i * xStep},${yForScore(s)}`).join(" ");
+  const zeroY = yForScore(0);
 
   // Current score determines line color
   const last = scores[scores.length - 1];
@@ -26,49 +23,60 @@ export function SignalSparkline({ scores }: SignalSparklineProps) {
       ? "var(--signal-bearish)"
       : "var(--signal-neutral)";
 
-  // Fill gradient from line to bottom
-  const fillPoints = `${padding},${yForScore(scores[0])} ${points} ${padding + (n - 1) * xStep},${height - padding} ${padding},${height - padding}`;
-
   return (
     <svg
-      width={width}
+      width="100%"
       height={height}
-      viewBox={`0 0 ${width} ${height}`}
+      viewBox={`0 0 100 ${height}`}
+      preserveAspectRatio="none"
       className="w-full"
-      style={{ maxWidth: width }}
     >
       {/* Neutral zero line */}
       <line
-        x1={padding}
-        y1={yForScore(0)}
-        x2={width - padding}
-        y2={yForScore(0)}
+        x1={0}
+        y1={zeroY}
+        x2={100}
+        y2={zeroY}
         stroke="currentColor"
         strokeOpacity={0.1}
         strokeDasharray="2 2"
       />
-      {/* Fill area */}
+      {/* Fill area relative to zero line */}
       <polygon
-        points={fillPoints}
+        points={buildFillPoints(scores, n, padding, height, zeroY)}
         fill={strokeColor}
         fillOpacity={0.08}
       />
       {/* Trend line */}
       <polyline
-        points={points}
+        points={buildLinePoints(scores, n, padding, height)}
         fill="none"
         stroke={strokeColor}
         strokeWidth={1.5}
         strokeLinecap="round"
         strokeLinejoin="round"
+        vectorEffect="non-scaling-stroke"
       />
       {/* Current value dot */}
       <circle
-        cx={padding + (n - 1) * xStep}
+        cx={100}
         cy={yForScore(last)}
         r={2.5}
         fill={strokeColor}
+        vectorEffect="non-scaling-stroke"
       />
     </svg>
   );
+}
+
+function buildLinePoints(scores: number[], n: number, padding: number, height: number): string {
+  const yForScore = (s: number) => padding + ((1 - s) / 2) * (height - padding * 2);
+  return scores.map((s, i) => `${(i / (n - 1)) * 100},${yForScore(s)}`).join(" ");
+}
+
+function buildFillPoints(scores: number[], n: number, padding: number, height: number, zeroY: number): string {
+  const yForScore = (s: number) => padding + ((1 - s) / 2) * (height - padding * 2);
+  const linePoints = scores.map((s, i) => `${(i / (n - 1)) * 100},${yForScore(s)}`).join(" ");
+  // Close polygon back to zero line (not bottom of SVG)
+  return `0,${zeroY} ${linePoints} ${((n - 1) / (n - 1)) * 100},${zeroY}`;
 }
