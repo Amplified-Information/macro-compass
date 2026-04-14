@@ -68,6 +68,28 @@ async function fetchAVDaily(symbol: string, apiKey: string): Promise<number[]> {
     .filter((v) => !isNaN(v));
 }
 
+// ===================== SHILLER CAPE RATIO =====================
+
+async function fetchShillerCAPE(): Promise<{ value: number; asOf: string } | null> {
+  try {
+    const url = "https://posix4e.github.io/shiller_wrapper_data/data/latest.json";
+    const res = await fetch(url);
+    if (!res.ok) {
+      console.warn(`Shiller CAPE API returned ${res.status}`);
+      return null;
+    }
+    const data = await res.json();
+    const cape = data?.stock_market?.cape;
+    const dateStr = data?.stock_market?.date ?? null;
+    if (typeof cape !== "number" || isNaN(cape)) return null;
+    console.log(`Shiller CAPE: ${cape.toFixed(2)} as of ${dateStr}`);
+    return { value: Math.round(cape * 100) / 100, asOf: dateStr ?? new Date().toISOString().slice(0, 10) };
+  } catch (e) {
+    console.warn("Shiller CAPE fetch failed:", e);
+    return null;
+  }
+}
+
 // ===================== YAHOO FINANCE OIL PRICE =====================
 
 async function fetchYahooOilPrice(): Promise<{ value: number; asOf: string } | null> {
