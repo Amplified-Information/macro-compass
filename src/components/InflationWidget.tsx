@@ -112,6 +112,60 @@ export function InflationWidget({ data }: InflationWidgetProps) {
           As of {inflation.asOf}
         </div>
       )}
+
+      <InflationExplainer />
+    </div>
+  );
+}
+
+function InflationExplainer() {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <div className="border-t border-border pt-3 mt-1">
+      <button
+        onClick={() => setOpen(!open)}
+        className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors w-full"
+      >
+        <Info className="h-3.5 w-3.5" />
+        <span>How this works</span>
+        {open ? <ChevronUp className="h-3.5 w-3.5 ml-auto" /> : <ChevronDown className="h-3.5 w-3.5 ml-auto" />}
+      </button>
+      {open && (
+        <div className="mt-3 space-y-3 text-xs text-muted-foreground leading-relaxed">
+          <p>
+            Oil prices are a <span className="text-foreground font-medium">leading indicator</span> of consumer inflation. When crude surges, it first hits gasoline and energy CPI within weeks, then flows into producer prices (PPI) as transport and input costs rise, and finally embeds into core CPI through second-round effects over 2–6 months.
+          </p>
+          <div className="rounded-lg bg-muted/40 border border-border p-3 space-y-2">
+            <p className="font-medium text-foreground text-[11px]">Transmission chain</p>
+            <ol className="list-decimal list-inside space-y-1 text-[11px]">
+              <li><span className="text-foreground">Oil price shock</span> — crude moves ≥10% in 30 days</li>
+              <li><span className="text-foreground">Energy CPI</span> — gasoline adjusts within 2–4 weeks</li>
+              <li><span className="text-foreground">PPI passthrough</span> — transport, chemicals, plastics reprice over 1–3 months</li>
+              <li><span className="text-foreground">Core CPI</span> — rent, services, and goods absorb cost pressure over 3–6 months</li>
+            </ol>
+          </div>
+          <div className="rounded-lg bg-muted/40 border border-border p-3 space-y-2">
+            <p className="font-medium text-foreground text-[11px]">What we measure</p>
+            <ul className="space-y-1 text-[11px]">
+              <li><span className="text-foreground font-medium">5y5y Breakeven</span> — market-implied inflation 5 years from now, averaged over the following 5 years. A forward-looking gauge of whether inflation expectations are anchored.</li>
+              <li><span className="text-foreground font-medium">Oil 30d Momentum</span> — percentage change in WTI crude over the past month. Rapid run-ups (&gt;15%) historically precede CPI spikes.</li>
+              <li><span className="text-foreground font-medium">Est. CPI Impact</span> — rule of thumb: every 10% oil move adds ~0.35% to headline CPI over 6 months. This is the estimated passthrough based on current momentum.</li>
+            </ul>
+          </div>
+          <div className="rounded-lg bg-muted/40 border border-border p-3 space-y-1">
+            <p className="font-medium text-foreground text-[11px]">Scoring</p>
+            <ul className="space-y-0.5 text-[11px]">
+              <li>🟢 <span className="text-foreground">Contained</span> — breakeven falling or stable, oil calm (&lt;5% 30d). No inflation headwind.</li>
+              <li>🟡 <span className="text-foreground">Monitoring</span> — mixed signals; breakeven drifting or oil in moderate range.</li>
+              <li>🔴 <span className="text-foreground">Pressure Building</span> — breakeven rising (&gt;+0.10) AND oil surging (&gt;10%). Inflation headwind forming.</li>
+            </ul>
+          </div>
+          <p className="text-[10px] italic">
+            Sources: FRED T5YIFR (5-Year, 5-Year Forward Inflation Expectation Rate), FRED DCOILWTICO / Yahoo Finance CL=F (WTI Crude Oil).
+          </p>
+        </div>
+      )}
     </div>
   );
 }
