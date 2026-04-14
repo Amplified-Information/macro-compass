@@ -20,7 +20,7 @@ const CATEGORIES: SignalCategory[] = ["leading", "coincident", "sentiment"];
 export default function Index() {
   const {
     signals, result, isLoading, isLive, fetchedAt,
-    snapshots, selectedSnapshotIdx, setSelectedSnapshotIdx, isViewingHistory,
+    snapshots, selectedSnapshotIdx, setSelectedSnapshotIdx, isViewingHistory, currentSnapshot,
     capeValue, capeElevated, capeAsOf,
     refreshLive, isRefreshing,
     liveData,
@@ -105,7 +105,7 @@ export default function Index() {
         <RegimeMap result={result} signals={signals} />
 
         {/* Inflation Pass-Through Widget */}
-        <InflationWidget data={liveData ?? null} />
+        <InflationWidget data={isViewingHistory && currentSnapshot ? currentSnapshot.snapshot_data : (liveData ?? null)} />
 
         {/* Signal groups */}
         {CATEGORIES.map((cat) => (

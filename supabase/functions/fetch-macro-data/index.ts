@@ -608,7 +608,7 @@ function computeComposite(signals: Record<string, number>): { score: number; reg
     (signals["nfci"] ?? 0) * 2 +
     (signals["cb-liquidity"] ?? 0) * 2;
 
-  const totalPossible = 24;
+  const totalPossible = 26;
   const normalized = Math.max(-1, Math.min(1, weighted / totalPossible));
 
   let regime = "cash";

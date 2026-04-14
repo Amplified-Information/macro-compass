@@ -28,11 +28,6 @@ export interface CompositeResult {
   deploymentLabel: string;
 }
 
-const CATEGORY_WEIGHTS: Record<SignalCategory, number> = {
-  leading: 2,
-  coincident: 1,
-  sentiment: 0.5,
-};
 
 export function getRegime(score: number): { regime: RegimeLevel; deploymentPct: number; deploymentLabel: string } {
   if (score > 0.5) return { regime: "full", deploymentPct: 100, deploymentLabel: "Fully Deployed" };

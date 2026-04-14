@@ -34,11 +34,11 @@ A real-time macroeconomic regime detection and portfolio deployment dashboard. A
 
 ## Signals Tracked
 
-**Leading** — Yield curve, credit spreads, insider buying, building permits, M2 money supply, CB balance sheets
+**Leading (2×)** — Yield curve, credit spreads, M2, NFCI, insider activity, oil, inflation pass-through, CB balance sheets
 
-**Coincident** — PMI/CFNAI, earnings revisions, oil momentum, inflation pass-through, market breadth
+**Coincident (1×)** — VIX, CFNAI, DXY, EPS trends, CAD/USD, market breadth
 
-**Sentiment** — VIX term structure, put/call ratio, fund flows
+**Sentiment (0.5×)** — Consumer sentiment (UMich), seasonality
 
 ## Deployment Logic
 
