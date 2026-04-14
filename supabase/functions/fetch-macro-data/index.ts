@@ -879,6 +879,60 @@ Deno.serve(async (req) => {
 
     const composite = computeComposite(signalScores);
 
+    // Compute regime detail (continuous axes + transition awareness)
+    const growthSignalWeights = [
+      { id: "yield-curve", weight: 2 },
+      { id: "pmi", weight: 1.5 },
+      { id: "earnings", weight: 1 },
+      { id: "credit-spreads", weight: 1.5 },
+      { id: "breadth", weight: 1 },
+      { id: "insider", weight: 0.5 },
+    ];
+    let gSum = 0, gW = 0;
+    for (const g of growthSignalWeights) {
+      if (g.id in signalScores) { gSum += signalScores[g.id] * g.weight; gW += g.weight; }
+    }
+    const growthScore = gW > 0 ? gSum / gW : 0;
+
+    const inflationSignalWeights = [
+      { id: "inflation", weight: 2 },
+      { id: "oil", weight: 1.5 },
+    ];
+    let iSum = 0, iW = 0;
+    for (const i of inflationSignalWeights) {
+      if (i.id in signalScores) { iSum += -signalScores[i.id] * i.weight; iW += i.weight; }
+    }
+    const inflationScoreAxis = iW > 0 ? iSum / iW : 0;
+
+    const growthUp = growthScore >= 0;
+    const inflationUp = inflationScoreAxis > 0;
+    const primaryRegime = growthUp && !inflationUp ? "goldilocks" : growthUp && inflationUp ? "reflation" : !growthUp && inflationUp ? "stagflation" : "deflation";
+
+    const TRANS_THRESH = 0.15;
+    let secondaryRegime: string | null = null;
+    const gNear = Math.abs(growthScore) < TRANS_THRESH;
+    const iNear = Math.abs(inflationScoreAxis) < TRANS_THRESH;
+    if (gNear || iNear) {
+      const flipG = gNear ? growthScore < 0 : growthScore >= 0;
+      const flipI = iNear ? inflationScoreAxis <= 0 : inflationScoreAxis > 0;
+      const sec = flipG && !flipI ? "goldilocks" : flipG && flipI ? "reflation" : !flipG && flipI ? "stagflation" : "deflation";
+      if (sec !== primaryRegime) secondaryRegime = sec;
+    }
+
+    const minDist = Math.min(Math.abs(growthScore), Math.abs(inflationScoreAxis));
+    const confidence = Math.min(1, minDist / 0.5);
+
+    const regimeDetail = {
+      primary: primaryRegime,
+      secondary: secondaryRegime,
+      confidence: Math.round(confidence * 100) / 100,
+      growthScore: Math.round(growthScore * 1000) / 1000,
+      inflationScore: Math.round(inflationScoreAxis * 1000) / 1000,
+    };
+
+    // Add regimeDetail to result
+    (result as any).regimeDetail = regimeDetail;
+
     // Save snapshot
     try {
       const { createClient } = await import("https://esm.sh/@supabase/supabase-js@2");
@@ -893,7 +947,7 @@ Deno.serve(async (req) => {
         regime: composite.regime,
         signals: signalScores,
       });
-      console.log("Snapshot saved, composite:", composite.score.toFixed(4), "regime:", composite.regime);
+      console.log("Snapshot saved, composite:", composite.score.toFixed(4), "regime:", composite.regime, "regimeDetail:", JSON.stringify(regimeDetail));
     } catch (e) {
       console.error("Failed to save snapshot:", e);
     }
