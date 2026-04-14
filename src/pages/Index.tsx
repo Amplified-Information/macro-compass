@@ -10,6 +10,7 @@ import { CategoryRadar } from "@/components/CategoryRadar";
 import { DeploymentSparkline } from "@/components/DeploymentSparkline";
 import { InflationWidget } from "@/components/InflationWidget";
 import { RegimeSignals } from "@/components/RegimeSignals";
+import { MacroRegimeIndicator } from "@/components/MacroRegimeIndicator";
 import { TimeSlider } from "@/components/TimeSlider";
 import { Wifi, WifiOff, RefreshCw } from "lucide-react";
 import logo from "@/assets/logo.png";
