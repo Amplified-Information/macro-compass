@@ -538,7 +538,17 @@ function scoreNFCI(v: number): number {
   if (v <= 0.5) return -1;       // Tightening — bearish
   return -1;                     // Crisis-level tightening
 }
-// CAD/USD: rising DEXCAUS = CAD weakening = bearish; falling = CAD strengthening = bullish
+// Inflation pass-through: combines breakeven inflation trend + oil momentum
+function scoreInflation(breakeven: number, breakevenPrev: number, oilChangePct: number): number {
+  const beDelta = breakeven - breakevenPrev; // rising = inflationary
+  // Bearish: breakeven rising AND oil surging
+  if (beDelta > 0.15 && oilChangePct > 10) return -1;
+  if (beDelta > 0.10 || oilChangePct > 15) return -1;
+  // Bullish: breakeven falling or stable AND oil calm
+  if (beDelta < -0.05 && oilChangePct < 5) return 1;
+  if (breakeven < 2.0 && oilChangePct < 5) return 1;
+  return 0;
+}
 function scoreCADUSD(current: number, previous: number): number {
   const changePct = previous > 0 ? ((current - previous) / previous) * 100 : 0;
   if (changePct < -0.5) return 1;   // CAD strengthening
@@ -561,13 +571,14 @@ function computeComposite(signals: Record<string, number>): { score: number; reg
     (signals["pmi"] ?? 0) * 1 +
     (signals["dxy"] ?? 0) * 1 +
     (signals["oil"] ?? 0) * 2 +
+    (signals["inflation"] ?? 0) * 2 +
     (signals["earnings"] ?? 0) * 1 +
     (signals["cadusd"] ?? 0) * 1 +
     (signals["sentiment"] ?? 0) * 0.5 +
     (signals["seasonality"] ?? 0) * 0.5 +
     (signals["nfci"] ?? 0) * 2;
 
-  const totalPossible = 20;
+  const totalPossible = 22;
   const normalized = Math.max(-1, Math.min(1, weighted / totalPossible));
 
   let regime = "cash";
