@@ -180,85 +180,87 @@ async function readEdgarCache(supabase: any): Promise<{ insider: any | null; ear
 }
 
 // Scoring functions
-function scoreVIX(v: number) { return v < 15 ? 1 : v <= 25 ? 0 : -1; }
-function scoreYieldCurve(s: number) { return s > 0.2 ? 1 : s >= -0.1 ? 0 : -1; }
-function scoreCreditSpread(bps: number) { return bps < 350 ? 1 : bps <= 500 ? 0 : -1; }
-function scoreM2(yoy: number) { return yoy > 2 ? 1 : yoy >= -1 ? 0 : -1; }
-function scoreOil(v: number, changePct: number) {
-  if (v > 100) return -1;
-  if (changePct > 15) return -1;
-  if (changePct > 8) return 0;
-  if (v < 85 && changePct < 8) return 1;
-  return 0;
+// Continuous linear scoring: maps value from [bearishEnd, neutralLow, neutralHigh, bullishEnd] → [-1, 0, 0, +1]
+// Outside the range clamps to -1 or +1. Between neutral bounds returns 0 only at exact midpoint;
+// the function interpolates linearly in each segment.
+function linearScore(v: number, bullishFull: number, neutralCenter: number, bearishFull: number): number {
+  // bullishFull < neutralCenter < bearishFull (lower is better)
+  // OR bullishFull > neutralCenter > bearishFull (higher is better)
+  const direction = bullishFull < bearishFull ? -1 : 1; // -1 = lower is better
+  if (direction === -1) {
+    // lower = bullish: e.g. VIX, credit spreads
+    if (v <= bullishFull) return 1;
+    if (v >= bearishFull) return -1;
+    if (v <= neutralCenter) return (neutralCenter - v) / (neutralCenter - bullishFull);      // 0→+1
+    return -((v - neutralCenter) / (bearishFull - neutralCenter));                           // 0→-1
+  } else {
+    // higher = bullish: e.g. yield curve spread
+    if (v >= bullishFull) return 1;
+    if (v <= bearishFull) return -1;
+    if (v >= neutralCenter) return (v - neutralCenter) / (bullishFull - neutralCenter);      // 0→+1
+    return -((neutralCenter - v) / (neutralCenter - bearishFull));                           // 0→-1
+  }
 }
-function scoreCFNAI(v: number) { return v > 0 ? 1 : v >= -0.7 ? 0 : -1; }
+
+// Continuous scoring functions — no more cliffs
+function scoreVIX(v: number) { return linearScore(v, 12, 20, 30); }
+function scoreYieldCurve(s: number) { return linearScore(s, 0.5, 0.05, -0.3); }  // higher = bullish
+function scoreCreditSpread(bps: number) { return linearScore(bps, 250, 400, 600); }
+function scoreM2(yoy: number) { return linearScore(yoy, 5, 1, -2); }  // higher = bullish
+function scoreOil(_v: number, changePct: number) {
+  // Oil scoring based on 30d momentum; continuous
+  return linearScore(changePct, -5, 5, 20); // lower momentum = bullish
+}
+function scoreCFNAI(v: number) { return linearScore(v, 0.5, -0.1, -0.7); }  // higher = bullish
 function scoreSentiment(v: number) {
-  if (v < 60) return 1;
-  if (v > 100) return -1;
-  return 0;
+  // Contrarian: low sentiment = bullish
+  return linearScore(v, 50, 80, 110);
 }
 function scoreDXY(current: number, previous: number) {
   const changePct = previous > 0 ? ((current - previous) / previous) * 100 : 0;
-  return changePct < -0.5 ? 1 : changePct <= 0.5 ? 0 : -1;
+  return linearScore(changePct, -1.5, 0, 1.5);
 }
 function scoreBreadth(wilshireReturnPct: number, sp500ReturnPct: number): number {
   const spread = wilshireReturnPct - sp500ReturnPct;
-  if (spread > 1) return 1;
-  if (spread >= -1) return 0;
-  return -1;
+  return linearScore(spread, 3, 0, -3); // higher = bullish
 }
 function scoreSeasonality(): number {
   const month = new Date().getMonth();
+  // Keep seasonal as stepped — it's inherently discrete
   if (month >= 10 || month <= 3) return 1;
   if (month === 8 || month === 9) return -1;
   return 0;
 }
 function scoreNFCI(v: number): number {
-  if (v < -0.5) return 1;
-  if (v <= 0) return 0;
-  if (v <= 0.5) return -1;
-  return -1;
+  return linearScore(v, -0.7, -0.1, 0.5); // lower = bullish (loose conditions)
 }
 function scoreInflation(breakeven: number, breakevenPrev: number, oilChangePct: number): number {
   const beDelta = breakeven - breakevenPrev;
-  if (beDelta > 0.15 && oilChangePct > 10) return -1;
-  if (beDelta > 0.10 || oilChangePct > 15) return -1;
-  if (beDelta < -0.05 && oilChangePct < 5) return 1;
-  if (breakeven < 2.0 && oilChangePct < 5) return 1;
-  return 0;
+  // Combine breakeven delta and oil momentum into a pressure score
+  const bePressure = linearScore(beDelta, -0.1, 0.02, 0.2);
+  const oilPressure = linearScore(oilChangePct, -5, 5, 20);
+  // Weighted average: breakeven delta matters more
+  return bePressure * 0.6 + oilPressure * 0.4;
 }
 function scoreCADUSD(current: number, previous: number): number {
   const changePct = previous > 0 ? ((current - previous) / previous) * 100 : 0;
-  if (changePct < -0.5) return 1;
-  if (changePct > 0.5) return -1;
-  return 0;
+  return linearScore(changePct, -1.5, 0, 1.5);
 }
-// New signal scoring functions
 function scoreJoblessClaims(v: number): number {
-  if (v < 225) return 1;       // Tight labor market
-  if (v <= 300) return 0;      // Normal range
-  return -1;                   // Deteriorating
+  return linearScore(v, 200, 260, 350); // lower = bullish
 }
 function scoreRealYield(v: number): number {
-  if (v < 0.5) return 1;      // Accommodative
-  if (v <= 2.0) return 0;     // Moderate
-  return -1;                  // Restrictive — compresses P/E
+  return linearScore(v, 0, 1.25, 2.5); // lower = bullish
 }
 function scoreLEI(momPct: number): number {
-  if (momPct > 0.1) return 1;   // Expanding
-  if (momPct >= -0.1) return 0;  // Flat
-  return -1;                     // Contracting
+  return linearScore(momPct, 0.3, 0, -0.3); // higher = bullish
 }
 function scoreIGSpread(bps: number): number {
-  if (bps < 100) return 1;      // Calm
-  if (bps <= 150) return 0;     // Moderate
-  return -1;                    // Stress building
+  return linearScore(bps, 75, 120, 175); // lower = bullish
 }
 function scoreRatePath(spread: number): number {
   // spread = DGS2 - DFF; negative = cuts priced (dovish/bullish)
-  if (spread < -0.25) return 1;   // Cuts priced in
-  if (spread <= 0.25) return 0;   // Steady
-  return -1;                      // Hikes priced in
+  return linearScore(spread, -0.75, 0, 0.5); // lower = bullish
 }
 function getSeasonLabel(): string {
   const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
