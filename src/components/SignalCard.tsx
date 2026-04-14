@@ -32,7 +32,9 @@ function ThresholdPill({ score }: { score: SignalScore }) {
 }
 
 export function SignalCard({ signal, scoreHistory }: { signal: MacroSignal; scoreHistory?: number[] }) {
-  const config = scoreConfig[signal.score];
+  // Quantize to nearest valid key to prevent undefined lookup crash
+  const quantized: SignalScore = signal.score >= 0.5 ? 1 : signal.score <= -0.5 ? -1 : 0;
+  const config = scoreConfig[quantized];
   const Icon = config.icon;
 
   return (
