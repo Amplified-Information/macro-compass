@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { getMockSignals, MacroSignal, SignalScore, computeComposite, CAPE_ELEVATED, CompositeResult } from "@/lib/macroSignals";
+import { getMockSignals, MacroSignal, SignalScore, computeComposite, CompositeResult } from "@/lib/macroSignals";
 import { useState, useMemo } from "react";
 
 export interface InsiderAPIData {
@@ -38,6 +38,7 @@ export interface MacroAPIResponse {
   insider: (InsiderAPIData & { asOf?: string | null }) | null;
   earnings: (EarningsAPIData & { asOf?: string | null }) | null;
   nfci: { value: number; asOf?: string | null } | null;
+  cape: { value: number; asOf?: string | null } | null;
   fetchedAt: string;
 }
 
@@ -226,18 +227,21 @@ export function useMacroData() {
   const snapshots = historyData?.snapshots ?? [];
   const mockSignals = getMockSignals();
 
+  const capeValue = liveData?.cape?.value ?? 33.2;
+  const capeElevated = capeValue > 30;
+
   const { signals, result, isViewingHistory, currentSnapshot } = useMemo(() => {
     if (selectedSnapshotIdx !== null && snapshots[selectedSnapshotIdx]) {
       const snap = snapshots[selectedSnapshotIdx];
       const sigs = applySnapshotSignals(mockSignals, snap.signals ?? {}, snap.snapshot_data);
-      const res = computeComposite(sigs, CAPE_ELEVATED);
+      const res = computeComposite(sigs, capeElevated);
       return { signals: sigs, result: res, isViewingHistory: true, currentSnapshot: snap };
     }
 
     const sigs = liveData ? applyLiveData(mockSignals, liveData) : mockSignals;
-    const res = computeComposite(sigs, CAPE_ELEVATED);
+    const res = computeComposite(sigs, capeElevated);
     return { signals: sigs, result: res, isViewingHistory: false, currentSnapshot: null };
-  }, [liveData, selectedSnapshotIdx, snapshots]);
+  }, [liveData, selectedSnapshotIdx, snapshots, capeElevated]);
 
   return {
     signals,
@@ -251,5 +255,8 @@ export function useMacroData() {
     setSelectedSnapshotIdx,
     isViewingHistory,
     currentSnapshot,
+    capeValue,
+    capeElevated,
+    capeAsOf: liveData?.cape?.asOf ?? null,
   };
 }
