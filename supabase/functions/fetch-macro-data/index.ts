@@ -68,7 +68,35 @@ async function fetchAVDaily(symbol: string, apiKey: string): Promise<number[]> {
     .filter((v) => !isNaN(v));
 }
 
-// ===================== SEC EDGAR FORM 4 INSIDER SCRAPER =====================
+// ===================== YAHOO FINANCE OIL PRICE =====================
+
+async function fetchYahooOilPrice(): Promise<{ value: number; asOf: string } | null> {
+  try {
+    const url = `${YAHOO_CHART_BASE}/CL=F`;
+    const res = await fetch(url, {
+      headers: { "User-Agent": "MacroDashboard/1.0" },
+    });
+    if (!res.ok) {
+      console.warn(`Yahoo Finance CL=F returned ${res.status}`);
+      return null;
+    }
+    const data = await res.json();
+    const meta = data?.chart?.result?.[0]?.meta;
+    if (!meta?.regularMarketPrice) return null;
+    const price = meta.regularMarketPrice;
+    // regularMarketTime is a unix timestamp
+    const marketTime = meta.regularMarketTime
+      ? new Date(meta.regularMarketTime * 1000).toISOString().slice(0, 10)
+      : new Date().toISOString().slice(0, 10);
+    console.log(`Yahoo Finance CL=F: $${price} as of ${marketTime}`);
+    return { value: price, asOf: marketTime };
+  } catch (e) {
+    console.warn("Yahoo Finance fetch failed:", e);
+    return null;
+  }
+}
+
+
 
 const SEC_HEADERS = {
   "User-Agent": "MacroDashboard/1.0 (macro-dashboard@lovable.app)",
