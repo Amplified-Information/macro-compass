@@ -1,4 +1,5 @@
 import { MacroSignal, SignalCategory } from "@/lib/macroSignals";
+import { MacroSnapshot } from "@/hooks/useMacroData";
 import { SignalCard } from "./SignalCard";
 
 const categoryMeta: Record<SignalCategory, { title: string; subtitle: string; weightLabel: string; borderColor: string }> = {
@@ -7,7 +8,7 @@ const categoryMeta: Record<SignalCategory, { title: string; subtitle: string; we
   sentiment: { title: "Sentiment & Contrarian", subtitle: "Extreme readings are contrarian signals", weightLabel: "0.5× weight", borderColor: "border-l-muted-foreground" },
 };
 
-export function SignalGroup({ category, signals }: { category: SignalCategory; signals: MacroSignal[] }) {
+export function SignalGroup({ category, signals, snapshots }: { category: SignalCategory; signals: MacroSignal[]; snapshots?: MacroSnapshot[] }) {
   const meta = categoryMeta[category];
   const groupScore = signals.reduce((s, sig) => s + sig.score, 0);
   const maxScore = signals.length;
@@ -43,9 +44,15 @@ export function SignalGroup({ category, signals }: { category: SignalCategory; s
         </div>
       </div>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-        {signals.map((signal) => (
-          <SignalCard key={signal.id} signal={signal} />
-        ))}
+        {signals.map((signal) => {
+          // Build score history from snapshots (oldest first)
+          const history = snapshots && snapshots.length > 0
+            ? [...snapshots].reverse().map((snap) => snap.signals?.[signal.id] ?? 0)
+            : undefined;
+          return (
+            <SignalCard key={signal.id} signal={signal} scoreHistory={history} />
+          );
+        })}
       </div>
     </div>
   );
