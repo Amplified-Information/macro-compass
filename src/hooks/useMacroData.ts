@@ -26,7 +26,7 @@ export interface EarningsAPIData {
 
 export interface MacroAPIResponse {
   vix: { value: number; asOf?: string | null } | null;
-  oil: { value: number; asOf?: string | null } | null;
+  oil: { value: number; asOf?: string | null; source?: string } | null;
   yieldCurve: { spread: number; asOf?: string | null } | null;
   creditSpread: { value: number; bps: number; asOf?: string | null } | null;
   m2: { yoyPercent: number; asOf?: string | null } | null;
@@ -103,7 +103,8 @@ export function applyLiveData(signals: MacroSignal[], data: MacroAPIResponse): M
       case "oil":
         if (data.oil) {
           const score = scoreOil(data.oil.value);
-          return { ...s, value: `$${data.oil.value.toFixed(2)}`, score, asOf: data.oil.asOf ?? undefined, description: `WTI crude at $${data.oil.value.toFixed(2)}. ${score === 1 ? "Stable — no supply shock." : score === 0 ? "Moderate." : "Spiking — supply pressure."}` };
+          const src = data.oil.source === "Yahoo Finance" ? "Yahoo Finance (CL=F)" : "FRED (DCOILWTICO)";
+          return { ...s, value: `$${data.oil.value.toFixed(2)}`, score, asOf: data.oil.asOf ?? undefined, source: src, description: `WTI crude at $${data.oil.value.toFixed(2)}. ${score === 1 ? "Stable — no supply shock." : score === 0 ? "Moderate." : "Spiking — supply pressure."}` };
         }
         return s;
       case "pmi":

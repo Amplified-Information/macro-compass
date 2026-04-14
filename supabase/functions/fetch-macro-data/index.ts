@@ -693,7 +693,7 @@ Deno.serve(async (req) => {
       yieldCurve: yieldSpread !== null && !isNaN(yieldSpread) ? { spread: yieldSpread, asOf: yieldAsOf } : null,
       creditSpread: creditSpreadVal !== null && !isNaN(creditSpreadVal) ? { value: creditSpreadVal, bps: Math.round(creditSpreadVal * 100), asOf: creditAsOf } : null,
       m2: m2YoY !== null ? { yoyPercent: m2YoY, asOf: m2AsOf } : null,
-      oil: oilPrice !== null && !isNaN(oilPrice) ? { value: oilPrice, asOf: oilAsOf } : null,
+      oil: oilPrice !== null && !isNaN(oilPrice) ? { value: oilPrice, asOf: oilAsOf, source: oilSource } : null,
       dxy: dxyCurrent !== null && !isNaN(dxyCurrent) ? {
         value: dxyCurrent,
         previousValue: dxyPrevious,
