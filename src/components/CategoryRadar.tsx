@@ -45,9 +45,9 @@ export function CategoryRadar({ signals }: Props) {
             <p className="font-semibold">How to read this chart</p>
             <p>Each axis shows the average score of signals in that category. The multiplier (2×, 1×, 0.5×) reflects the weight each category carries in the composite score.</p>
             <ul className="list-disc pl-3 space-y-1">
-              <li><span className="text-signal-bullish font-medium">Leading (2×)</span> — forward-looking indicators like yield curve, ISM, building permits</li>
-              <li><span className="text-signal-coincident font-medium">Coincident (1×)</span> — real-time measures like employment, industrial production</li>
-              <li><span className="text-signal-bearish font-medium">Sentiment (0.5×)</span> — survey-based gauges like consumer confidence, VIX</li>
+              <li><span className="text-signal-bullish font-medium">Leading (2×)</span> — forward-looking indicators like yield curve, credit spreads, M2, NFCI</li>
+              <li><span className="text-signal-coincident font-medium">Coincident (1×)</span> — real-time measures like VIX, CFNAI, DXY, oil, EPS trends, CAD/USD</li>
+              <li><span className="text-signal-bearish font-medium">Sentiment (0.5×)</span> — survey-based gauges like consumer sentiment, seasonality</li>
             </ul>
             <p>A balanced triangle means all categories agree. A skewed shape highlights divergence — e.g. leading indicators turning while sentiment lags.</p>
           </TooltipContent>

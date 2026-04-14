@@ -113,7 +113,7 @@ export function getMockSignals(): MacroSignal[] {
       bullishCondition: "Wilshire > SP500 (broad)",
       neutralCondition: "In line",
       bearishCondition: "SP500 > Wilshire (narrow)",
-      source: "FRED (WILL5000INDFC vs SP500)",
+      source: "FRED (WILL5000PRFC vs SP500)",
       tooltip: "Compares Wilshire 5000 (total US market ~3,500 stocks) vs S&P 500 (large-cap 500) relative performance. When the broader index outperforms, it signals participation beyond mega-caps.",
     },
     {

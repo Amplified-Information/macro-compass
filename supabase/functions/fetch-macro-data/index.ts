@@ -631,7 +631,7 @@ Deno.serve(async (req) => {
       fetchFREDSeries("DTWEXBGS", fredKey, 30).catch(() => []),
       // Breadth: Wilshire 5000 (total market) vs SP500 (large-cap) from FRED
       fetchFREDSeries("SP500", fredKey, 60).catch(() => []),
-      fetchFREDSeries("WILL5000INDFC", fredKey, 60).catch(() => []),
+      fetchFREDSeries("WILL5000PRFC", fredKey, 60).catch(() => []),
       fetchEdgarInsiderActivity().catch(() => null),
       fetchEdgarEarningsRevisions().catch(() => null),
       fetchFRED("NFCI", fredKey).catch(() => null),
