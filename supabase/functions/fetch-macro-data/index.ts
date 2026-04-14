@@ -528,16 +528,12 @@ function scoreYieldCurve(s: number) { return s > 0.2 ? 1 : s >= -0.1 ? 0 : -1; }
 function scoreCreditSpread(bps: number) { return bps < 350 ? 1 : bps <= 500 ? 0 : -1; }
 function scoreM2(yoy: number) { return yoy > 2 ? 1 : yoy >= -1 ? 0 : -1; }
 function scoreOil(v: number, changePct: number) {
-  // Level-based: extreme prices are bearish regardless of momentum
   if (v > 100) return -1;
-  // Momentum-based: rapid run-up is a leading bearish signal
   if (changePct > 15) return -1;
   if (changePct > 8) return 0;
-  // Moderate/falling prices with no run-up = bullish
   if (v < 85 && changePct < 8) return 1;
   return 0;
 }
-// CFNAI: > 0 = above-trend growth, < -0.7 = recession territory
 function scoreCFNAI(v: number) { return v > 0 ? 1 : v >= -0.7 ? 0 : -1; }
 function scoreSentiment(v: number) {
   if (v < 60) return 1;
@@ -560,29 +556,52 @@ function scoreSeasonality(): number {
   if (month === 8 || month === 9) return -1;
   return 0;
 }
-// NFCI: positive = tightening financial conditions, negative = loose
 function scoreNFCI(v: number): number {
-  if (v < -0.5) return 1;       // Loose conditions — bullish
-  if (v <= 0) return 0;          // Neutral
-  if (v <= 0.5) return -1;       // Tightening — bearish
-  return -1;                     // Crisis-level tightening
+  if (v < -0.5) return 1;
+  if (v <= 0) return 0;
+  if (v <= 0.5) return -1;
+  return -1;
 }
-// Inflation pass-through: combines breakeven inflation trend + oil momentum
 function scoreInflation(breakeven: number, breakevenPrev: number, oilChangePct: number): number {
-  const beDelta = breakeven - breakevenPrev; // rising = inflationary
-  // Bearish: breakeven rising AND oil surging
+  const beDelta = breakeven - breakevenPrev;
   if (beDelta > 0.15 && oilChangePct > 10) return -1;
   if (beDelta > 0.10 || oilChangePct > 15) return -1;
-  // Bullish: breakeven falling or stable AND oil calm
   if (beDelta < -0.05 && oilChangePct < 5) return 1;
   if (breakeven < 2.0 && oilChangePct < 5) return 1;
   return 0;
 }
 function scoreCADUSD(current: number, previous: number): number {
   const changePct = previous > 0 ? ((current - previous) / previous) * 100 : 0;
-  if (changePct < -0.5) return 1;   // CAD strengthening
-  if (changePct > 0.5) return -1;   // CAD weakening
+  if (changePct < -0.5) return 1;
+  if (changePct > 0.5) return -1;
   return 0;
+}
+// New signal scoring functions
+function scoreJoblessClaims(v: number): number {
+  if (v < 225) return 1;       // Tight labor market
+  if (v <= 300) return 0;      // Normal range
+  return -1;                   // Deteriorating
+}
+function scoreRealYield(v: number): number {
+  if (v < 0.5) return 1;      // Accommodative
+  if (v <= 2.0) return 0;     // Moderate
+  return -1;                  // Restrictive — compresses P/E
+}
+function scoreLEI(momPct: number): number {
+  if (momPct > 0.1) return 1;   // Expanding
+  if (momPct >= -0.1) return 0;  // Flat
+  return -1;                     // Contracting
+}
+function scoreIGSpread(bps: number): number {
+  if (bps < 100) return 1;      // Calm
+  if (bps <= 150) return 0;     // Moderate
+  return -1;                    // Stress building
+}
+function scoreRatePath(spread: number): number {
+  // spread = DGS2 - DFF; negative = cuts priced (dovish/bullish)
+  if (spread < -0.25) return 1;   // Cuts priced in
+  if (spread <= 0.25) return 0;   // Steady
+  return -1;                      // Hikes priced in
 }
 function getSeasonLabel(): string {
   const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
@@ -606,9 +625,14 @@ function computeComposite(signals: Record<string, number>): { score: number; reg
     (signals["sentiment"] ?? 0) * 0.5 +
     (signals["seasonality"] ?? 0) * 0.5 +
     (signals["nfci"] ?? 0) * 2 +
-    (signals["cb-liquidity"] ?? 0) * 2;
+    (signals["cb-liquidity"] ?? 0) * 2 +
+    (signals["jobless-claims"] ?? 0) * 2 +
+    (signals["real-yield"] ?? 0) * 2 +
+    (signals["lei"] ?? 0) * 2 +
+    (signals["ig-spreads"] ?? 0) * 1.5 +
+    (signals["rate-path"] ?? 0) * 1.5;
 
-  const totalPossible = 26;
+  const totalPossible = 35.5;
   const normalized = Math.max(-1, Math.min(1, weighted / totalPossible));
 
   let regime = "cash";
