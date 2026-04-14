@@ -41,6 +41,7 @@ export interface MacroAPIResponse {
   cape: { value: number; asOf?: string | null } | null;
   cadusd: { value: number; changePercent: number; asOf?: string | null } | null;
   inflation: { breakeven: number; breakevenPrev: number; breakevenDelta: number; oilMomentum13w: number; passThrough: number; score: number; asOf?: string | null } | null;
+  cbLiquidity: { fedTotal: number; fedWoW: number; fedWoWPct: number; bocTotal: number; bocWoW: number; bocWoWPct: number; combinedWoWPct: number; score: number; asOf?: string | null } | null;
   fetchedAt: string;
 }
 
@@ -79,6 +80,11 @@ function scoreInflation(breakeven: number, breakevenPrev: number, oilChangePct: 
 function scoreSentiment(v: number): SignalScore {
   if (v < 60) return 1;
   if (v > 100) return -1;
+  return 0;
+}
+function scoreCBLiquidity(combinedWoWPct: number): SignalScore {
+  if (combinedWoWPct > 0.1) return 1;       // Expanding — QE
+  if (combinedWoWPct < -0.1) return -1;      // Contracting — QT
   return 0;
 }
 
