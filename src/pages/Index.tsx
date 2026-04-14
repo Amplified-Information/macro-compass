@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { CAPE_ELEVATED, SignalCategory } from "@/lib/macroSignals";
+import { SignalCategory } from "@/lib/macroSignals";
 import { useMacroData } from "@/hooks/useMacroData";
 import { CompositeGauge } from "@/components/CompositeGauge";
 import { SignalGroup } from "@/components/SignalGroup";
@@ -17,6 +17,7 @@ export default function Index() {
   const {
     signals, result, isLoading, isLive, fetchedAt,
     snapshots, selectedSnapshotIdx, setSelectedSnapshotIdx, isViewingHistory,
+    capeValue, capeElevated, capeAsOf,
   } = useMacroData();
 
   return (
@@ -65,7 +66,7 @@ export default function Index() {
         />
 
         {/* CAPE Banner */}
-        <CapeDampener />
+        <CapeDampener capeValue={capeValue} capeElevated={capeElevated} capeAsOf={capeAsOf} />
 
         {/* Two-column: Verdict (left) | Evidence (right) */}
         <div className="grid gap-6 lg:grid-cols-5">
