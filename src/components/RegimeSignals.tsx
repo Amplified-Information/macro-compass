@@ -10,17 +10,24 @@ interface RegimeSignalCard {
 function deriveRegimeSignals(signals: MacroSignal[]): RegimeSignalCard[] {
   const byId = Object.fromEntries(signals.map((s) => [s.id, s]));
 
-  // Inflation pressure: inflation pass-through + oil momentum
-  const inflationScore = (byId["inflation"]?.score ?? 0) + (byId["oil"]?.score ?? 0);
+  // Inflation pressure: broad composite (oil, breakevens, real yield, rate path, DXY)
+  const inflationIds = ["inflation", "oil", "real-yield", "rate-path", "dxy"];
+  const inflationWeights = [2, 1.5, 1.5, 1.5, 1];
+  let infWSum = 0, infTW = 0;
+  inflationIds.forEach((id, idx) => {
+    const s = byId[id];
+    if (s) { infWSum += -s.score * inflationWeights[idx]; infTW += inflationWeights[idx]; }
+  });
+  const inflationScore = infTW > 0 ? infWSum / infTW : 0;
   const inflationCard: RegimeSignalCard = {
     label: "Inflation pressure",
-    status: inflationScore <= -1 ? "Rising fast" : inflationScore >= 1 ? "Contained" : "Moderate",
-    color: inflationScore <= -1 ? "bearish" : inflationScore >= 1 ? "bullish" : "neutral",
-    explainer: inflationScore <= -1
-      ? "Oil momentum and breakeven inflation are both elevated — expect CPI pressure in 2–6 months."
-      : inflationScore >= 1
-      ? "Oil prices are stable and inflation expectations are anchored. No pass-through risk."
-      : "Mixed signals — oil or breakevens showing some movement but not yet alarming.",
+    status: inflationScore > 0.3 ? "Rising fast" : inflationScore < -0.3 ? "Contained" : "Moderate",
+    color: inflationScore > 0.3 ? "bearish" : inflationScore < -0.3 ? "bullish" : "neutral",
+    explainer: inflationScore > 0.3
+      ? "Multiple inflation signals flashing — oil momentum, real yields, and rate expectations all point to rising price pressure."
+      : inflationScore < -0.3
+      ? "Inflation signals broadly contained — stable oil, anchored expectations, and supportive real yields."
+      : "Mixed inflation signals — some indicators moving but no clear directional pressure yet.",
   };
 
   // Growth momentum: yield curve + CFNAI + EPS

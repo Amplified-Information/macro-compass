@@ -201,10 +201,13 @@ export function detectRegimeDetail(signals: MacroSignal[]): RegimeDetail {
   }
   const growthScore = growthTotalWeight > 0 ? growthWeightedSum / growthTotalWeight : 0;
 
-  // Inflation axis: oil + inflation pass-through (inverted: negative score = rising inflation)
+  // Inflation axis: broad set of inflation-relevant signals (inverted: negative score = rising inflation)
   const inflationSignals = [
-    { id: "inflation", weight: 2 },
-    { id: "oil", weight: 1.5 },
+    { id: "inflation", weight: 2 },      // 5y5y breakeven + oil pass-through
+    { id: "oil", weight: 1.5 },          // Oil momentum — leading CPI driver
+    { id: "real-yield", weight: 1.5 },   // Higher real yields = tighter conditions = disinflationary
+    { id: "rate-path", weight: 1.5 },    // Pricing cuts = inflation contained; hikes = pressure
+    { id: "dxy", weight: 1 },            // Strong dollar = disinflationary impulse
   ];
 
   let inflationWeightedSum = 0;
