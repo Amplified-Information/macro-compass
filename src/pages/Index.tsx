@@ -9,7 +9,7 @@ import { RegimeMap } from "@/components/RegimeMap";
 import { CategoryRadar } from "@/components/CategoryRadar";
 import { DeploymentSparkline } from "@/components/DeploymentSparkline";
 import { TimeSlider } from "@/components/TimeSlider";
-import { Wifi, WifiOff } from "lucide-react";
+import { Wifi, WifiOff, RefreshCw } from "lucide-react";
 import logo from "@/assets/logo.png";
 
 const CATEGORIES: SignalCategory[] = ["leading", "coincident", "sentiment"];
@@ -19,6 +19,7 @@ export default function Index() {
     signals, result, isLoading, isLive, fetchedAt,
     snapshots, selectedSnapshotIdx, setSelectedSnapshotIdx, isViewingHistory,
     capeValue, capeElevated, capeAsOf,
+    refreshLive, isRefreshing,
   } = useMacroData();
 
   return (
@@ -33,12 +34,21 @@ export default function Index() {
               <p className="text-xs text-muted-foreground">Weighted composite signal · Risk regime detector</p>
             </div>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
             {isViewingHistory && (
               <span className="text-xs font-mono px-2 py-1 rounded-full bg-signal-neutral/10 text-signal-neutral border border-signal-neutral/30">
                 Viewing Historical Snapshot
               </span>
             )}
+            <button
+              onClick={refreshLive}
+              disabled={isRefreshing || isLoading}
+              title="Force refresh from live sources"
+              className="flex items-center gap-1.5 text-xs font-mono px-2 py-1 rounded-full border border-border text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-colors disabled:opacity-50"
+            >
+              <RefreshCw className={`h-3 w-3 ${isRefreshing ? "animate-spin" : ""}`} />
+              {isRefreshing ? "Refreshing…" : "Refresh"}
+            </button>
             <div className={`flex items-center gap-1.5 text-xs font-mono px-2 py-1 rounded-full border ${
               isLive ? "border-signal-bullish/30 text-signal-bullish bg-signal-bullish/10" :
               isLoading ? "border-signal-neutral/30 text-signal-neutral bg-signal-neutral/10" :
