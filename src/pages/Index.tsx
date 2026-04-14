@@ -10,6 +10,7 @@ import { CategoryRadar } from "@/components/CategoryRadar";
 import { DeploymentSparkline } from "@/components/DeploymentSparkline";
 import { InflationWidget } from "@/components/InflationWidget";
 import { RegimeSignals } from "@/components/RegimeSignals";
+import { MacroRegimeIndicator } from "@/components/MacroRegimeIndicator";
 import { TimeSlider } from "@/components/TimeSlider";
 import { Wifi, WifiOff, RefreshCw } from "lucide-react";
 import logo from "@/assets/logo.png";
@@ -70,6 +71,9 @@ export default function Index() {
       </header>
 
       <main className="container max-w-7xl mx-auto px-4 py-6 space-y-6">
+        {/* Macro Regime */}
+        <MacroRegimeIndicator signals={signals} />
+
         {/* Time Slider */}
         <TimeSlider
           snapshots={snapshots}
