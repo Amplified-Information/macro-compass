@@ -288,6 +288,20 @@ export function getMockSignals(): MacroSignal[] {
       source: "FRED (T5YIFR)",
       tooltip: "Combines 5-Year, 5-Year Forward Inflation Expectation Rate with oil price momentum. Oil prices feed into CPI with a 2–6 month lag (~0.35% CPI per 10% oil move). Rising breakevens + oil momentum = inflation headwind.",
     },
+    {
+      id: "cb-liquidity",
+      name: "CB Balance Sheets",
+      category: "leading",
+      weight: 2,
+      score: 0,
+      value: "0.000% WoW",
+      description: "Fed + BoC combined balance sheet week-over-week change. Tracks QE/QT liquidity flows.",
+      bullishCondition: "> +0.1% WoW (QE)",
+      neutralCondition: "±0.1% (flat)",
+      bearishCondition: "< -0.1% WoW (QT)",
+      source: "FRED (WALCL) + BoC Valet (V36610)",
+      tooltip: "Tracks combined Fed and Bank of Canada balance sheet changes week-over-week. Expanding balance sheets (QE) inject liquidity into markets — bullish. Contracting (QT) drains liquidity — bearish. The Fed is weighted 85%, BoC 15%.",
+    },
   ];
 }
 
