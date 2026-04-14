@@ -274,6 +274,20 @@ export function getMockSignals(): MacroSignal[] {
       source: "FRED (DEXCAUS)",
       tooltip: "Canada/US exchange rate (CAD per 1 USD). Canada is a major commodity exporter and US trading partner. CAD strength signals global risk appetite and commodity demand; weakness signals risk-off.",
     },
+    {
+      id: "inflation",
+      name: "Inflation Pass-Through",
+      category: "leading",
+      weight: 2,
+      score: 0,
+      value: "2.30%",
+      description: "5y5y breakeven inflation stable. Oil-to-CPI pass-through contained.",
+      bullishCondition: "Breakeven falling & oil calm",
+      neutralCondition: "Mixed signals",
+      bearishCondition: "Breakeven rising & oil surging",
+      source: "FRED (T5YIFR)",
+      tooltip: "Combines 5-Year, 5-Year Forward Inflation Expectation Rate with oil price momentum. Oil prices feed into CPI with a 2–6 month lag (~0.35% CPI per 10% oil move). Rising breakevens + oil momentum = inflation headwind.",
+    },
   ];
 }
 
@@ -290,6 +304,7 @@ const REGIME_DIMENSION_MAP: { label: string; signalIds: string[]; tooltip: strin
   { label: "Trend", signalIds: ["breadth", "seasonality"], tooltip: "Market Breadth & Seasonality — gauges how broad and persistent the current trend is." },
   { label: "Liquidity", signalIds: ["m2", "nfci", "credit-spreads"], tooltip: "M2 Money Supply, NFCI & Credit Spreads — measures the availability and cost of capital in the financial system." },
   { label: "Rates / Dollar", signalIds: ["dxy", "oil", "cadusd"], tooltip: "Dollar Index, Oil & CAD/USD — tracks monetary tightening pressure, input cost headwinds, and commodity-currency risk appetite." },
+  { label: "Inflation", signalIds: ["inflation"], tooltip: "5y5y Breakeven + Oil Pass-Through — tracks whether oil price momentum is translating into inflation expectations, a leading headwind for equities." },
 ];
 
 export function computeRegimeDimensions(signals: MacroSignal[]): RegimeDimension[] {

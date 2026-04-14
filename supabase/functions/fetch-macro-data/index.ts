@@ -538,7 +538,17 @@ function scoreNFCI(v: number): number {
   if (v <= 0.5) return -1;       // Tightening — bearish
   return -1;                     // Crisis-level tightening
 }
-// CAD/USD: rising DEXCAUS = CAD weakening = bearish; falling = CAD strengthening = bullish
+// Inflation pass-through: combines breakeven inflation trend + oil momentum
+function scoreInflation(breakeven: number, breakevenPrev: number, oilChangePct: number): number {
+  const beDelta = breakeven - breakevenPrev; // rising = inflationary
+  // Bearish: breakeven rising AND oil surging
+  if (beDelta > 0.15 && oilChangePct > 10) return -1;
+  if (beDelta > 0.10 || oilChangePct > 15) return -1;
+  // Bullish: breakeven falling or stable AND oil calm
+  if (beDelta < -0.05 && oilChangePct < 5) return 1;
+  if (breakeven < 2.0 && oilChangePct < 5) return 1;
+  return 0;
+}
 function scoreCADUSD(current: number, previous: number): number {
   const changePct = previous > 0 ? ((current - previous) / previous) * 100 : 0;
   if (changePct < -0.5) return 1;   // CAD strengthening
@@ -561,13 +571,14 @@ function computeComposite(signals: Record<string, number>): { score: number; reg
     (signals["pmi"] ?? 0) * 1 +
     (signals["dxy"] ?? 0) * 1 +
     (signals["oil"] ?? 0) * 2 +
+    (signals["inflation"] ?? 0) * 2 +
     (signals["earnings"] ?? 0) * 1 +
     (signals["cadusd"] ?? 0) * 1 +
     (signals["sentiment"] ?? 0) * 0.5 +
     (signals["seasonality"] ?? 0) * 0.5 +
     (signals["nfci"] ?? 0) * 2;
 
-  const totalPossible = 20;
+  const totalPossible = 22;
   const normalized = Math.max(-1, Math.min(1, weighted / totalPossible));
 
   let regime = "cash";
@@ -667,6 +678,7 @@ Deno.serve(async (req) => {
       sp500Series, wilshire5000Series,
       insiderData, earningsData, fredNFCI,
       yahooOil, capeData, cadSeries,
+      breakevenSeries,
     ] = await Promise.all([
       fetchFRED("T10Y2Y", fredKey).catch(() => null),
       fetchFRED("BAMLH0A0HYM2", fredKey).catch(() => null),
@@ -684,6 +696,7 @@ Deno.serve(async (req) => {
       fetchYahooOilPrice().catch(() => null),
       fetchShillerCAPE().catch(() => null),
       fetchFREDSeries("DEXCAUS", fredKey, 5).catch(() => []),
+      fetchFREDSeries("T5YIFR", fredKey, 30).catch(() => []),
     ]);
 
     // M2 YoY calculation
@@ -799,6 +812,23 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Breakeven Inflation (T5YIFR - 5y5y forward)
+    const beObs = breakevenSeries as Array<{ date: string; value: string }>;
+    let inflationData: { breakeven: number; breakevenPrev: number; breakevenDelta: number; oilMomentum13w: number; passThrough: number; score: number; asOf: string | null } | null = null;
+    if (Array.isArray(beObs) && beObs.length >= 2) {
+      const beCurrent = parseFloat(beObs[0].value);
+      const bePrev = beObs.length > 20 ? parseFloat(beObs[20].value) : parseFloat(beObs[beObs.length - 1].value);
+      if (!isNaN(beCurrent) && !isNaN(bePrev)) {
+        const beDelta = Math.round((beCurrent - bePrev) * 100) / 100;
+        const oilMom = oilChangePct; // 30-day oil momentum already computed
+        // Pass-through estimate: ~0.35% CPI per 10% oil move over 6 months
+        const passThrough = Math.round(oilMom * 0.035 * 100) / 100;
+        const score = scoreInflation(beCurrent, bePrev, oilMom);
+        inflationData = { breakeven: beCurrent, breakevenPrev: bePrev, breakevenDelta: beDelta, oilMomentum13w: oilMom, passThrough, score, asOf: beObs[0].date };
+      }
+    }
+    console.log(`Inflation: breakeven=${inflationData?.breakeven}, delta=${inflationData?.breakevenDelta}, passThrough=${inflationData?.passThrough}%, score=${inflationData?.score}`);
+
     const result = {
       vix: vixValue !== null && !isNaN(vixValue) ? { value: vixValue, asOf: vixAsOf } : null,
       yieldCurve: yieldSpread !== null && !isNaN(yieldSpread) ? { spread: yieldSpread, asOf: yieldAsOf } : null,
@@ -820,6 +850,7 @@ Deno.serve(async (req) => {
       nfci: nfciValue !== null && !isNaN(nfciValue) ? { value: nfciValue, asOf: nfciAsOf } : null,
       cape: capeData ? { value: capeData.value, asOf: capeData.asOf } : null,
       cadusd: cadData,
+      inflation: inflationData,
       fetchedAt: new Date().toISOString(),
     };
 
@@ -843,6 +874,8 @@ Deno.serve(async (req) => {
     else signalScores["nfci"] = 0;
     if (cadData) signalScores["cadusd"] = scoreCADUSD(cadData.value, cadData.value / (1 + cadData.changePercent / 100));
     else signalScores["cadusd"] = 0;
+    if (inflationData) signalScores["inflation"] = inflationData.score;
+    else signalScores["inflation"] = 0;
 
     const composite = computeComposite(signalScores);
 

@@ -40,6 +40,7 @@ export interface MacroAPIResponse {
   nfci: { value: number; asOf?: string | null } | null;
   cape: { value: number; asOf?: string | null } | null;
   cadusd: { value: number; changePercent: number; asOf?: string | null } | null;
+  inflation: { breakeven: number; breakevenPrev: number; breakevenDelta: number; oilMomentum13w: number; passThrough: number; score: number; asOf?: string | null } | null;
   fetchedAt: string;
 }
 
@@ -67,6 +68,14 @@ function scoreCFNAI(v: number): SignalScore { return v > 0 ? 1 : v >= -0.7 ? 0 :
 function scoreDXY(changePct: number): SignalScore { return changePct < -0.5 ? 1 : changePct <= 0.5 ? 0 : -1; }
 function scoreNFCI(v: number): SignalScore { return v < -0.5 ? 1 : v <= 0 ? 0 : -1; }
 function scoreCADUSD(changePct: number): SignalScore { return changePct < -0.5 ? 1 : changePct > 0.5 ? -1 : 0; }
+function scoreInflation(breakeven: number, breakevenPrev: number, oilChangePct: number): SignalScore {
+  const beDelta = breakeven - breakevenPrev;
+  if (beDelta > 0.15 && oilChangePct > 10) return -1;
+  if (beDelta > 0.10 || oilChangePct > 15) return -1;
+  if (beDelta < -0.05 && oilChangePct < 5) return 1;
+  if (breakeven < 2.0 && oilChangePct < 5) return 1;
+  return 0;
+}
 function scoreSentiment(v: number): SignalScore {
   if (v < 60) return 1;
   if (v > 100) return -1;
@@ -191,6 +200,13 @@ export function applyLiveData(signals: MacroSignal[], data: MacroAPIResponse): M
           return { ...s, value: `${data.cadusd.value.toFixed(4)}`, score, asOf: data.cadusd.asOf ?? undefined, description: `CAD/USD at ${data.cadusd.value.toFixed(4)} (${chg}%). ${score === 1 ? "CAD strengthening — risk-on, commodity demand healthy." : score === 0 ? "Stable." : "CAD weakening — risk-off signal."}` };
         }
         return s;
+      case "inflation":
+        if (data.inflation) {
+          const score = scoreInflation(data.inflation.breakeven, data.inflation.breakevenPrev, data.inflation.oilMomentum13w);
+          const ptStr = data.inflation.passThrough > 0 ? `+${data.inflation.passThrough}` : `${data.inflation.passThrough}`;
+          return { ...s, value: `${data.inflation.breakeven.toFixed(2)}%`, score, asOf: data.inflation.asOf ?? undefined, description: `5y5y breakeven at ${data.inflation.breakeven.toFixed(2)}% (Δ${data.inflation.breakevenDelta > 0 ? "+" : ""}${data.inflation.breakevenDelta.toFixed(2)}). Oil 30d momentum: ${data.inflation.oilMomentum13w > 0 ? "+" : ""}${data.inflation.oilMomentum13w.toFixed(1)}%. Est. CPI pass-through: ${ptStr}%. ${score === 1 ? "Inflation contained — benign." : score === 0 ? "Mixed inflation signals." : "Rising inflation pressure — headwind."}` };
+        }
+        return s;
       default:
         return s;
     }
@@ -292,5 +308,6 @@ export function useMacroData() {
     capeAsOf: liveData?.cape?.asOf ?? null,
     refreshLive,
     isRefreshing,
+    liveData: liveData ?? null,
   };
 }
