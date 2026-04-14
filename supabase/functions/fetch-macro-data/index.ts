@@ -950,6 +950,8 @@ Deno.serve(async (req) => {
     else signalScores["cadusd"] = 0;
     if (inflationData) signalScores["inflation"] = inflationData.score;
     else signalScores["inflation"] = 0;
+    if (cbLiquidity) signalScores["cb-liquidity"] = cbLiquidity.score;
+    else signalScores["cb-liquidity"] = 0;
 
     const composite = computeComposite(signalScores);
 
