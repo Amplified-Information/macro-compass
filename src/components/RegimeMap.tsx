@@ -1,5 +1,7 @@
 import { CompositeResult, MacroSignal } from "@/lib/macroSignals";
 import { RegimeRadar } from "@/components/RegimeRadar";
+import { ChevronDown } from "lucide-react";
+import { useState } from "react";
 
 interface RegimeMapping {
   label: string;
