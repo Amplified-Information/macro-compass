@@ -5,6 +5,7 @@ const corsHeaders = {
 
 const AV_BASE = "https://www.alphavantage.co/query";
 const FRED_BASE = "https://api.stlouisfed.org/fred/series/observations";
+const YAHOO_CHART_BASE = "https://query1.finance.yahoo.com/v8/finance/chart";
 
 interface FREDResponse {
   observations?: Array<{ date: string; value: string }>;
