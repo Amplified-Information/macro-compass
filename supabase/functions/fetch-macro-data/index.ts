@@ -763,7 +763,6 @@ Deno.serve(async (req) => {
 
     // Save snapshot (reuse existing client)
     try {
-
       await supabaseClient.from("macro_snapshots").insert({
         snapshot_data: result,
         composite_score: parseFloat(composite.score.toFixed(4)),
@@ -771,6 +770,21 @@ Deno.serve(async (req) => {
         signals: signalScores,
       });
       console.log("Snapshot saved, composite:", composite.score.toFixed(4), "regime:", composite.regime, "regimeDetail:", JSON.stringify(regimeDetail));
+
+      // Trigger alert check after saving snapshot
+      try {
+        const alertUrl = `${Deno.env.get("SUPABASE_URL")}/functions/v1/check-alerts`;
+        await fetch(alertUrl, {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${Deno.env.get("SUPABASE_ANON_KEY")}`,
+            "Content-Type": "application/json",
+          },
+        });
+        console.log("Alert check triggered.");
+      } catch (alertErr) {
+        console.warn("Alert check trigger failed:", alertErr);
+      }
     } catch (e) {
       console.error("Failed to save snapshot:", e);
     }
