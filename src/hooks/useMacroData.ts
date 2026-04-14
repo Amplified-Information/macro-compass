@@ -213,6 +213,17 @@ export function applyLiveData(signals: MacroSignal[], data: MacroAPIResponse): M
           return { ...s, value: `${data.inflation.breakeven.toFixed(2)}%`, score, asOf: data.inflation.asOf ?? undefined, description: `5y5y breakeven at ${data.inflation.breakeven.toFixed(2)}% (Δ${data.inflation.breakevenDelta > 0 ? "+" : ""}${data.inflation.breakevenDelta.toFixed(2)}). Oil 30d momentum: ${data.inflation.oilMomentum13w > 0 ? "+" : ""}${data.inflation.oilMomentum13w.toFixed(1)}%. Est. CPI pass-through: ${ptStr}%. ${score === 1 ? "Inflation contained — benign." : score === 0 ? "Mixed inflation signals." : "Rising inflation pressure — headwind."}` };
         }
         return s;
+      case "cb-liquidity":
+        if (data.cbLiquidity) {
+          const score = scoreCBLiquidity(data.cbLiquidity.combinedWoWPct);
+          const fedT = (data.cbLiquidity.fedTotal / 1e6).toFixed(2);
+          const fedChg = data.cbLiquidity.fedWoWPct > 0 ? `+${data.cbLiquidity.fedWoWPct.toFixed(3)}` : data.cbLiquidity.fedWoWPct.toFixed(3);
+          const bocB = (data.cbLiquidity.bocTotal / 1e3).toFixed(1);
+          const bocChg = data.cbLiquidity.bocWoWPct > 0 ? `+${data.cbLiquidity.bocWoWPct.toFixed(3)}` : data.cbLiquidity.bocWoWPct.toFixed(3);
+          const combChg = data.cbLiquidity.combinedWoWPct > 0 ? `+${data.cbLiquidity.combinedWoWPct.toFixed(3)}` : data.cbLiquidity.combinedWoWPct.toFixed(3);
+          return { ...s, value: `${combChg}% WoW`, score, asOf: data.cbLiquidity.asOf ?? undefined, description: `Fed balance sheet: $${fedT}T (WoW ${fedChg}%). BoC total assets: C$${bocB}B (WoW ${bocChg}%). Combined WoW: ${combChg}%. ${score === 1 ? "Central banks expanding — QE liquidity tailwind." : score === 0 ? "Balance sheets roughly flat — neutral." : "Central banks contracting — QT liquidity headwind."}` };
+        }
+        return s;
       default:
         return s;
     }
