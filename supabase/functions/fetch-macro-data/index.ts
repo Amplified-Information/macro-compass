@@ -124,6 +124,35 @@ async function fetchYahooOilPrice(): Promise<{ value: number; asOf: string } | n
   }
 }
 
+// ===================== BANK OF CANADA TOTAL ASSETS (VALET API) =====================
+
+interface BoCValetResponse {
+  observations?: Array<{ d: string; [key: string]: { v: string } | string }>;
+}
+
+async function fetchBoCTotalAssets(): Promise<Array<{ date: string; value: number }> | null> {
+  try {
+    const url = "https://www.bankofcanada.ca/valet/observations/V36610/json?recent=10";
+    const res = await fetch(url);
+    if (!res.ok) {
+      console.warn(`BoC Valet API returned ${res.status}`);
+      return null;
+    }
+    const data: BoCValetResponse = await res.json();
+    if (!data.observations || data.observations.length < 2) return null;
+    return data.observations
+      .map((obs) => ({
+        date: obs.d as string,
+        value: parseFloat((obs.V36610 as { v: string })?.v ?? "0"),
+      }))
+      .filter((o) => !isNaN(o.value) && o.value > 0)
+      .sort((a, b) => b.date.localeCompare(a.date));
+  } catch (e) {
+    console.warn("BoC Valet fetch failed:", e);
+    return null;
+  }
+}
+
 
 
 const SEC_HEADERS = {
@@ -679,6 +708,7 @@ Deno.serve(async (req) => {
       insiderData, earningsData, fredNFCI,
       yahooOil, capeData, cadSeries,
       breakevenSeries,
+      fedBalanceSheet, bocAssets,
     ] = await Promise.all([
       fetchFRED("T10Y2Y", fredKey).catch(() => null),
       fetchFRED("BAMLH0A0HYM2", fredKey).catch(() => null),
@@ -697,6 +727,9 @@ Deno.serve(async (req) => {
       fetchShillerCAPE().catch(() => null),
       fetchFREDSeries("DEXCAUS", fredKey, 5).catch(() => []),
       fetchFREDSeries("T5YIFR", fredKey, 30).catch(() => []),
+      // Central Bank Balance Sheets (weekly)
+      fetchFREDSeries("WALCL", fredKey, 10).catch(() => []),
+      fetchBoCTotalAssets().catch(() => null),
     ]);
 
     // M2 YoY calculation
