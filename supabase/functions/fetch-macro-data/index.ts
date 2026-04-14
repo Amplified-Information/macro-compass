@@ -588,27 +588,36 @@ Deno.serve(async (req) => {
       }
     } catch { /* ignore */ }
 
-    // Parse FRED values
-    const vixValue = fredVIX ? parseFloat(fredVIX) : null;
-    const yieldSpread = fredYieldSpread ? parseFloat(fredYieldSpread) : null;
-    const creditSpreadVal = fredCreditSpread ? parseFloat(fredCreditSpread) : null;
-    const oilPrice = fredOil ? parseFloat(fredOil) : null;
-    const cfnaiValue = fredCFNAI ? parseFloat(fredCFNAI) : null;
-    const sentimentValue = fredSentiment ? parseFloat(fredSentiment) : null;
-    const nfciValue = fredNFCI ? parseFloat(fredNFCI as string) : null;
+    // Parse FRED values (now objects with { value, asOf })
+    const vixValue = fredVIX ? parseFloat(fredVIX.value) : null;
+    const vixAsOf = fredVIX?.asOf ?? null;
+    const yieldSpread = fredYieldSpread ? parseFloat(fredYieldSpread.value) : null;
+    const yieldAsOf = fredYieldSpread?.asOf ?? null;
+    const creditSpreadVal = fredCreditSpread ? parseFloat(fredCreditSpread.value) : null;
+    const creditAsOf = fredCreditSpread?.asOf ?? null;
+    const oilPrice = fredOil ? parseFloat(fredOil.value) : null;
+    const oilAsOf = fredOil?.asOf ?? null;
+    const cfnaiValue = fredCFNAI ? parseFloat(fredCFNAI.value) : null;
+    const cfnaiAsOf = fredCFNAI?.asOf ?? null;
+    const sentimentValue = fredSentiment ? parseFloat(fredSentiment.value) : null;
+    const sentimentAsOf = fredSentiment?.asOf ?? null;
+    const nfciValue = fredNFCI ? parseFloat(fredNFCI.value) : null;
+    const nfciAsOf = fredNFCI?.asOf ?? null;
 
     // DXY direction
     const dxyObs = fredDXY as Array<{ date: string; value: string }>;
     let dxyCurrent: number | null = null;
     let dxyPrevious: number | null = null;
+    let dxyAsOf: string | null = null;
     if (Array.isArray(dxyObs) && dxyObs.length >= 2) {
       dxyCurrent = parseFloat(dxyObs[0].value);
       dxyPrevious = parseFloat(dxyObs[1].value);
+      dxyAsOf = dxyObs[0].date;
     }
 
     // Breadth: SP500 (broad 500) vs DJIA (concentrated 30) from FRED
     // If SP500 outperforms DJIA, broader participation beyond mega-caps
-    let breadthData: { sp500Return: number; djiaReturn: number; spread: number; score: number } | null = null;
+    let breadthData: { sp500Return: number; djiaReturn: number; spread: number; score: number; asOf: string | null } | null = null;
     const sp5 = sp500Series as Array<{ date: string; value: string }>;
     const dji = wilshire5000Series as Array<{ date: string; value: string }>;
     const lookback = 40;
@@ -626,6 +635,7 @@ Deno.serve(async (req) => {
           djiaReturn: Math.round(djiaRet * 100) / 100,
           spread: Math.round(spread * 100) / 100,
           score: scoreBreadth(sp500Ret, djiaRet),
+          asOf: sp5[0].date,
         };
       }
     }
@@ -634,25 +644,27 @@ Deno.serve(async (req) => {
     // Seasonality
     const seasonScore = scoreSeasonality();
     const seasonLabel = getSeasonLabel();
+    const todayStr = new Date().toISOString().slice(0, 10);
 
     const result = {
-      vix: vixValue !== null && !isNaN(vixValue) ? { value: vixValue } : null,
-      yieldCurve: yieldSpread !== null && !isNaN(yieldSpread) ? { spread: yieldSpread } : null,
-      creditSpread: creditSpreadVal !== null && !isNaN(creditSpreadVal) ? { value: creditSpreadVal, bps: Math.round(creditSpreadVal * 100) } : null,
-      m2: m2YoY !== null ? { yoyPercent: m2YoY } : null,
-      oil: oilPrice !== null && !isNaN(oilPrice) ? { value: oilPrice } : null,
+      vix: vixValue !== null && !isNaN(vixValue) ? { value: vixValue, asOf: vixAsOf } : null,
+      yieldCurve: yieldSpread !== null && !isNaN(yieldSpread) ? { spread: yieldSpread, asOf: yieldAsOf } : null,
+      creditSpread: creditSpreadVal !== null && !isNaN(creditSpreadVal) ? { value: creditSpreadVal, bps: Math.round(creditSpreadVal * 100), asOf: creditAsOf } : null,
+      m2: m2YoY !== null ? { yoyPercent: m2YoY, asOf: m2AsOf } : null,
+      oil: oilPrice !== null && !isNaN(oilPrice) ? { value: oilPrice, asOf: oilAsOf } : null,
       dxy: dxyCurrent !== null && !isNaN(dxyCurrent) ? {
         value: dxyCurrent,
         previousValue: dxyPrevious,
         changePercent: dxyPrevious && !isNaN(dxyPrevious) ? ((dxyCurrent - dxyPrevious) / dxyPrevious) * 100 : 0,
+        asOf: dxyAsOf,
       } : null,
-      pmi: cfnaiValue !== null && !isNaN(cfnaiValue) ? { value: cfnaiValue, series: "CFNAI" } : null,
-      sentiment: sentimentValue !== null && !isNaN(sentimentValue) ? { value: sentimentValue } : null,
-      seasonality: { month: seasonLabel, score: seasonScore },
+      pmi: cfnaiValue !== null && !isNaN(cfnaiValue) ? { value: cfnaiValue, series: "CFNAI", asOf: cfnaiAsOf } : null,
+      sentiment: sentimentValue !== null && !isNaN(sentimentValue) ? { value: sentimentValue, asOf: sentimentAsOf } : null,
+      seasonality: { month: seasonLabel, score: seasonScore, asOf: todayStr },
       breadth: breadthData,
-      insider: insiderData as InsiderResult | null,
-      earnings: earningsData as EarningsResult | null,
-      nfci: nfciValue !== null && !isNaN(nfciValue) ? { value: nfciValue } : null,
+      insider: insiderData ? { ...insiderData, asOf: todayStr } : null,
+      earnings: earningsData ? { ...earningsData, asOf: todayStr } : null,
+      nfci: nfciValue !== null && !isNaN(nfciValue) ? { value: nfciValue, asOf: nfciAsOf } : null,
       fetchedAt: new Date().toISOString(),
     };
 
