@@ -70,7 +70,7 @@ export function applyLiveData(signals: MacroSignal[], data: MacroAPIResponse): M
       case "vix":
         if (data.vix) {
           const score = scoreVIX(data.vix.value);
-          return { ...s, value: data.vix.value.toFixed(1), score, description: `VIX at ${data.vix.value.toFixed(1)}. ${score === 1 ? "Low vol — favourable for trend-following." : score === 0 ? "Moderate volatility." : "Elevated — risk-off conditions."}` };
+          return { ...s, value: data.vix.value.toFixed(1), score, asOf: data.vix.asOf ?? undefined, description: `VIX at ${data.vix.value.toFixed(1)}. ${score === 1 ? "Low vol — favourable for trend-following." : score === 0 ? "Moderate volatility." : "Elevated — risk-off conditions."}` };
         }
         return s;
       case "yield-curve":
@@ -78,38 +78,38 @@ export function applyLiveData(signals: MacroSignal[], data: MacroAPIResponse): M
           const score = scoreYieldCurve(data.yieldCurve.spread);
           const bps = Math.round(data.yieldCurve.spread * 100);
           const str = `${bps >= 0 ? "+" : ""}${bps} bps`;
-          return { ...s, value: str, score, description: `2s10s spread at ${str}. ${score === 1 ? "Positive — bullish." : score === 0 ? "Flat — neutral." : "Inverted — recession warning."}` };
+          return { ...s, value: str, score, asOf: data.yieldCurve.asOf ?? undefined, description: `2s10s spread at ${str}. ${score === 1 ? "Positive — bullish." : score === 0 ? "Flat — neutral." : "Inverted — recession warning."}` };
         }
         return s;
       case "credit-spreads":
         if (data.creditSpread) {
           const score = scoreCreditSpread(data.creditSpread.bps);
-          return { ...s, value: `${data.creditSpread.bps} bps`, score, description: `HY OAS at ${data.creditSpread.bps} bps. ${score === 1 ? "Tight — risk appetite healthy." : score === 0 ? "Moderate range." : "Wide — credit stress."}` };
+          return { ...s, value: `${data.creditSpread.bps} bps`, score, asOf: data.creditSpread.asOf ?? undefined, description: `HY OAS at ${data.creditSpread.bps} bps. ${score === 1 ? "Tight — risk appetite healthy." : score === 0 ? "Moderate range." : "Wide — credit stress."}` };
         }
         return s;
       case "m2":
         if (data.m2) {
           const score = scoreM2(data.m2.yoyPercent);
           const str = `${data.m2.yoyPercent >= 0 ? "+" : ""}${data.m2.yoyPercent.toFixed(1)}% YoY`;
-          return { ...s, value: str, score, description: `M2 money supply ${str}. ${score === 1 ? "Expanding — liquidity tailwind." : score === 0 ? "Flat." : "Contracting — liquidity headwind."}` };
+          return { ...s, value: str, score, asOf: data.m2.asOf ?? undefined, description: `M2 money supply ${str}. ${score === 1 ? "Expanding — liquidity tailwind." : score === 0 ? "Flat." : "Contracting — liquidity headwind."}` };
         }
         return s;
       case "dxy":
         if (data.dxy) {
           const score = scoreDXY(data.dxy.changePercent);
-          return { ...s, value: data.dxy.value.toFixed(1), score, description: `Trade-weighted dollar at ${data.dxy.value.toFixed(1)} (${data.dxy.changePercent > 0 ? "+" : ""}${data.dxy.changePercent.toFixed(2)}%). ${score === 1 ? "Weakening — bullish for risk assets." : score === 0 ? "Stable." : "Strengthening — headwind."}` };
+          return { ...s, value: data.dxy.value.toFixed(1), score, asOf: data.dxy.asOf ?? undefined, description: `Trade-weighted dollar at ${data.dxy.value.toFixed(1)} (${data.dxy.changePercent > 0 ? "+" : ""}${data.dxy.changePercent.toFixed(2)}%). ${score === 1 ? "Weakening — bullish for risk assets." : score === 0 ? "Stable." : "Strengthening — headwind."}` };
         }
         return s;
       case "oil":
         if (data.oil) {
           const score = scoreOil(data.oil.value);
-          return { ...s, value: `$${data.oil.value.toFixed(2)}`, score, description: `WTI crude at $${data.oil.value.toFixed(2)}. ${score === 1 ? "Stable — no supply shock." : score === 0 ? "Moderate." : "Spiking — supply pressure."}` };
+          return { ...s, value: `$${data.oil.value.toFixed(2)}`, score, asOf: data.oil.asOf ?? undefined, description: `WTI crude at $${data.oil.value.toFixed(2)}. ${score === 1 ? "Stable — no supply shock." : score === 0 ? "Moderate." : "Spiking — supply pressure."}` };
         }
         return s;
       case "pmi":
         if (data.pmi) {
           const score = scoreCFNAI(data.pmi.value);
-          return { ...s, value: data.pmi.value.toFixed(2), score, description: `Chicago Fed National Activity Index at ${data.pmi.value.toFixed(2)}. ${score === 1 ? "Above-trend growth — economy expanding." : score === 0 ? "Near trend — neutral activity." : "Well below trend — recession risk."}`,
+          return { ...s, value: data.pmi.value.toFixed(2), score, asOf: data.pmi.asOf ?? undefined, description: `Chicago Fed National Activity Index at ${data.pmi.value.toFixed(2)}. ${score === 1 ? "Above-trend growth — economy expanding." : score === 0 ? "Near trend — neutral activity." : "Well below trend — recession risk."}`,
             bullishCondition: "> 0 (above trend)",
             neutralCondition: "0 to -0.7",
             bearishCondition: "< -0.7 (recession)",
@@ -119,7 +119,7 @@ export function applyLiveData(signals: MacroSignal[], data: MacroAPIResponse): M
       case "sentiment":
         if (data.sentiment) {
           const score = scoreSentiment(data.sentiment.value);
-          return { ...s, value: data.sentiment.value.toFixed(1), score, description: `U. Michigan Consumer Sentiment at ${data.sentiment.value.toFixed(1)}. ${score === 1 ? "Extreme pessimism — contrarian bullish." : score === 0 ? "Neutral sentiment range." : "Extreme optimism — contrarian bearish."}`,
+          return { ...s, value: data.sentiment.value.toFixed(1), score, asOf: data.sentiment.asOf ?? undefined, description: `U. Michigan Consumer Sentiment at ${data.sentiment.value.toFixed(1)}. ${score === 1 ? "Extreme pessimism — contrarian bullish." : score === 0 ? "Neutral sentiment range." : "Extreme optimism — contrarian bearish."}`,
             bullishCondition: "< 60 (contrarian)",
             neutralCondition: "60–100",
             bearishCondition: "> 100 (contrarian)",
@@ -128,14 +128,14 @@ export function applyLiveData(signals: MacroSignal[], data: MacroAPIResponse): M
         return s;
       case "seasonality":
         if (data.seasonality) {
-          return { ...s, value: data.seasonality.month, score: data.seasonality.score as SignalScore, description: `Currently in ${data.seasonality.month}. ${data.seasonality.score === 1 ? "Historically favourable seasonal window (Nov–Apr)." : data.seasonality.score === -1 ? "Historically weak period (Sep–Oct)." : "Transitional seasonal period (May–Aug)."}` };
+          return { ...s, value: data.seasonality.month, score: data.seasonality.score as SignalScore, asOf: data.seasonality.asOf ?? undefined, description: `Currently in ${data.seasonality.month}. ${data.seasonality.score === 1 ? "Historically favourable seasonal window (Nov–Apr)." : data.seasonality.score === -1 ? "Historically weak period (Sep–Oct)." : "Transitional seasonal period (May–Aug)."}` };
         }
         return s;
       case "breadth":
         if (data.breadth) {
           const score = data.breadth.score as SignalScore;
           const spread = data.breadth.spread > 0 ? `+${data.breadth.spread}` : `${data.breadth.spread}`;
-          return { ...s, value: `${spread}%`, score, description: `S&P 500 vs DJIA 40-day relative spread: ${spread}%. S&P 500 ${data.breadth.sp500Return > 0 ? "+" : ""}${data.breadth.sp500Return}% vs DJIA ${data.breadth.djiaReturn > 0 ? "+" : ""}${data.breadth.djiaReturn}%. ${score === 1 ? "S&P 500 outperforming DJIA — broader participation beyond top 30." : score === 0 ? "Roughly in line — neutral breadth." : "DJIA leading S&P 500 — narrow mega-cap leadership."}`,
+          return { ...s, value: `${spread}%`, score, asOf: data.breadth.asOf ?? undefined, description: `S&P 500 vs DJIA 40-day relative spread: ${spread}%. S&P 500 ${data.breadth.sp500Return > 0 ? "+" : ""}${data.breadth.sp500Return}% vs DJIA ${data.breadth.djiaReturn > 0 ? "+" : ""}${data.breadth.djiaReturn}%. ${score === 1 ? "S&P 500 outperforming DJIA — broader participation beyond top 30." : score === 0 ? "Roughly in line — neutral breadth." : "DJIA leading S&P 500 — narrow mega-cap leadership."}`,
             bullishCondition: "SP500 > DJIA (broad)",
             neutralCondition: "In line",
             bearishCondition: "DJIA > SP500 (narrow)",
@@ -148,7 +148,7 @@ export function applyLiveData(signals: MacroSignal[], data: MacroAPIResponse): M
           const buyPct = Math.round(data.insider.buyRatio * 100);
           const purchaseM = (data.insider.totalPurchaseValue / 1_000_000).toFixed(1);
           const saleM = (data.insider.totalSaleValue / 1_000_000).toFixed(1);
-          return { ...s, value: `${buyPct}% buys`, score, description: `SEC Form 4 insider activity (${data.insider.daysScanned}d): ${data.insider.purchaseCount} purchases ($${purchaseM}M) vs ${data.insider.saleCount} sales ($${saleM}M). Buy ratio: ${buyPct}%. ${score === 1 ? "Unusual insider buying — bullish signal." : score === 0 ? "Normal buy/sell mix." : "Heavy insider selling — bearish signal."}`,
+          return { ...s, value: `${buyPct}% buys`, score, asOf: data.insider.asOf ?? undefined, description: `SEC Form 4 insider activity (${data.insider.daysScanned}d): ${data.insider.purchaseCount} purchases ($${purchaseM}M) vs ${data.insider.saleCount} sales ($${saleM}M). Buy ratio: ${buyPct}%. ${score === 1 ? "Unusual insider buying — bullish signal." : score === 0 ? "Normal buy/sell mix." : "Heavy insider selling — bearish signal."}`,
             bullishCondition: "> 35% buy ratio",
             neutralCondition: "15–35%",
             bearishCondition: "< 15% buy ratio",
@@ -159,7 +159,7 @@ export function applyLiveData(signals: MacroSignal[], data: MacroAPIResponse): M
         if (data.earnings) {
           const score = data.earnings.score as SignalScore;
           const improvPct = Math.round(data.earnings.improvingRatio * 100);
-          return { ...s, value: `${improvPct}% improving`, score, description: `XBRL EPS trends across ${data.earnings.companiesAnalyzed} large-caps: ${data.earnings.epsImprovingCount} improving, ${data.earnings.epsDecliningCount} declining, ${data.earnings.epsStableCount} stable. ${data.earnings.recentEarnings8K} earnings 8-Ks filed in last 30d. ${score === 1 ? "Majority of earnings improving — bullish revision momentum." : score === 0 ? "Mixed earnings trends." : "Majority declining — bearish revision momentum."}`,
+          return { ...s, value: `${improvPct}% improving`, score, asOf: data.earnings.asOf ?? undefined, description: `XBRL EPS trends across ${data.earnings.companiesAnalyzed} large-caps: ${data.earnings.epsImprovingCount} improving, ${data.earnings.epsDecliningCount} declining, ${data.earnings.epsStableCount} stable. ${data.earnings.recentEarnings8K} earnings 8-Ks filed in last 30d. ${score === 1 ? "Majority of earnings improving — bullish revision momentum." : score === 0 ? "Mixed earnings trends." : "Majority declining — bearish revision momentum."}`,
             bullishCondition: "> 50% improving",
             neutralCondition: "Mixed",
             bearishCondition: "> 50% declining",
@@ -169,7 +169,7 @@ export function applyLiveData(signals: MacroSignal[], data: MacroAPIResponse): M
       case "nfci":
         if (data.nfci) {
           const score = scoreNFCI(data.nfci.value);
-          return { ...s, value: data.nfci.value.toFixed(2), score, description: `Chicago Fed NFCI at ${data.nfci.value.toFixed(2)}. ${score === 1 ? "Loose financial conditions — bullish." : score === 0 ? "Neutral conditions." : "Tightening — credit stress rising."}` };
+          return { ...s, value: data.nfci.value.toFixed(2), score, asOf: data.nfci.asOf ?? undefined, description: `Chicago Fed NFCI at ${data.nfci.value.toFixed(2)}. ${score === 1 ? "Loose financial conditions — bullish." : score === 0 ? "Neutral conditions." : "Tightening — credit stress rising."}` };
         }
         return s;
       default:
