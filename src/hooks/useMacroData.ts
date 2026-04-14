@@ -40,6 +40,7 @@ export interface MacroAPIResponse {
   nfci: { value: number; asOf?: string | null } | null;
   cape: { value: number; asOf?: string | null } | null;
   cadusd: { value: number; changePercent: number; asOf?: string | null } | null;
+  inflation: { breakeven: number; breakevenPrev: number; breakevenDelta: number; oilMomentum13w: number; passThrough: number; score: number; asOf?: string | null } | null;
   fetchedAt: string;
 }
 
@@ -67,6 +68,14 @@ function scoreCFNAI(v: number): SignalScore { return v > 0 ? 1 : v >= -0.7 ? 0 :
 function scoreDXY(changePct: number): SignalScore { return changePct < -0.5 ? 1 : changePct <= 0.5 ? 0 : -1; }
 function scoreNFCI(v: number): SignalScore { return v < -0.5 ? 1 : v <= 0 ? 0 : -1; }
 function scoreCADUSD(changePct: number): SignalScore { return changePct < -0.5 ? 1 : changePct > 0.5 ? -1 : 0; }
+function scoreInflation(breakeven: number, breakevenPrev: number, oilChangePct: number): SignalScore {
+  const beDelta = breakeven - breakevenPrev;
+  if (beDelta > 0.15 && oilChangePct > 10) return -1;
+  if (beDelta > 0.10 || oilChangePct > 15) return -1;
+  if (beDelta < -0.05 && oilChangePct < 5) return 1;
+  if (breakeven < 2.0 && oilChangePct < 5) return 1;
+  return 0;
+}
 function scoreSentiment(v: number): SignalScore {
   if (v < 60) return 1;
   if (v > 100) return -1;
