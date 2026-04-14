@@ -42,6 +42,11 @@ export interface MacroAPIResponse {
   cadusd: { value: number; changePercent: number; asOf?: string | null } | null;
   inflation: { breakeven: number; breakevenPrev: number; breakevenDelta: number; oilMomentum13w: number; passThrough: number; score: number; asOf?: string | null } | null;
   cbLiquidity: { fedTotal: number; fedWoW: number; fedWoWPct: number; bocTotal: number; bocWoW: number; bocWoWPct: number; combinedWoWPct: number; score: number; asOf?: string | null } | null;
+  joblessClaims: { value: number; asOf?: string | null } | null;
+  realYield: { value: number; asOf?: string | null } | null;
+  lei: { value: number; prevValue: number; momPct: number; score: number; asOf?: string | null } | null;
+  igSpread: { value: number; bps: number; asOf?: string | null } | null;
+  ratePath: { dgs2: number; dff: number; spread: number; score: number; asOf?: string | null } | null;
   fetchedAt: string;
 }
 
@@ -83,9 +88,34 @@ function scoreSentiment(v: number): SignalScore {
   return 0;
 }
 function scoreCBLiquidity(combinedWoWPct: number): SignalScore {
-  if (combinedWoWPct > 0.1) return 1;       // Expanding — QE
-  if (combinedWoWPct < -0.1) return -1;      // Contracting — QT
+  if (combinedWoWPct > 0.1) return 1;
+  if (combinedWoWPct < -0.1) return -1;
   return 0;
+}
+function scoreJoblessClaims(v: number): SignalScore {
+  if (v < 225) return 1;
+  if (v <= 300) return 0;
+  return -1;
+}
+function scoreRealYield(v: number): SignalScore {
+  if (v < 0.5) return 1;
+  if (v <= 2.0) return 0;
+  return -1;
+}
+function scoreLEI(momPct: number): SignalScore {
+  if (momPct > 0.1) return 1;
+  if (momPct >= -0.1) return 0;
+  return -1;
+}
+function scoreIGSpread(bps: number): SignalScore {
+  if (bps < 100) return 1;
+  if (bps <= 150) return 0;
+  return -1;
+}
+function scoreRatePath(spread: number): SignalScore {
+  if (spread < -0.25) return 1;
+  if (spread <= 0.25) return 0;
+  return -1;
 }
 
 export function applyLiveData(signals: MacroSignal[], data: MacroAPIResponse): MacroSignal[] {
