@@ -71,6 +71,9 @@ export default function Index() {
       </header>
 
       <main className="container max-w-7xl mx-auto px-4 py-6 space-y-6">
+        {/* Macro Regime */}
+        <MacroRegimeIndicator signals={signals} />
+
         {/* Time Slider */}
         <TimeSlider
           snapshots={snapshots}
