@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { MacroSignal, SignalCategory } from "@/lib/macroSignals";
 import { MacroSnapshot } from "@/hooks/useMacroData";
 import { SignalCard } from "./SignalCard";
@@ -13,6 +14,17 @@ export function SignalGroup({ category, signals, snapshots }: { category: Signal
   const groupScore = signals.reduce((s, sig) => s + sig.score, 0);
   const maxScore = signals.length;
   const normalizedGroup = maxScore > 0 ? groupScore / maxScore : 0;
+
+  // Deduplicate snapshots to one per day (latest per day), limit to 30 days, oldest first
+  const dailySnapshots = useMemo(() => {
+    if (!snapshots || snapshots.length === 0) return null;
+    const byDay = new Map<string, MacroSnapshot>();
+    for (const snap of snapshots) {
+      const day = snap.created_at.slice(0, 10);
+      if (!byDay.has(day)) byDay.set(day, snap); // snapshots are newest-first, so first seen = latest
+    }
+    return [...byDay.values()].reverse().slice(-30);
+  }, [snapshots]);
 
   return (
     <div className={`space-y-4 border-l-4 pl-4 ${meta.borderColor}`}>
@@ -45,12 +57,8 @@ export function SignalGroup({ category, signals, snapshots }: { category: Signal
       </div>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         {signals.map((signal) => {
-          // Build score history from snapshots (oldest first)
-          const history = snapshots && snapshots.length > 0
-            ? [...snapshots].reverse().map((snap) => snap.signals?.[signal.id] ?? 0)
-            : undefined;
           return (
-            <SignalCard key={signal.id} signal={signal} scoreHistory={history} />
+            <SignalCard key={signal.id} signal={signal} scoreHistory={dailySnapshots ? dailySnapshots.map((snap) => snap.signals?.[signal.id] ?? 0) : undefined} />
           );
         })}
       </div>
