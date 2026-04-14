@@ -603,6 +603,43 @@ Deno.serve(async (req) => {
     });
   }
 
+  // Check for force-refresh param (cron jobs won't send this; browser requests skip cache with ?refresh=true)
+  const forceRefresh = reqUrl.searchParams.get("refresh") === "true";
+
+  // Cache: return latest snapshot if it's less than 6 hours old (unless force-refresh)
+  if (!forceRefresh) {
+    try {
+      const { createClient } = await import("https://esm.sh/@supabase/supabase-js@2");
+      const supabase = createClient(
+        Deno.env.get("SUPABASE_URL")!,
+        Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+      );
+
+      const { data: recent } = await supabase
+        .from("macro_snapshots")
+        .select("snapshot_data, created_at")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .single();
+
+      if (recent) {
+        const ageMs = Date.now() - new Date(recent.created_at).getTime();
+        const sixHours = 6 * 60 * 60 * 1000;
+        if (ageMs < sixHours) {
+          console.log(`Cache hit: snapshot is ${Math.round(ageMs / 60000)}min old, returning cached data`);
+          const cached = recent.snapshot_data as Record<string, unknown>;
+          cached.fetchedAt = recent.created_at;
+          cached._cached = true;
+          return new Response(JSON.stringify(cached), {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+      }
+    } catch (e) {
+      console.warn("Cache check failed, proceeding with fresh fetch:", e);
+    }
+  }
+
   // Default: fetch fresh data
   const fredKey = Deno.env.get("FRED_API_KEY");
   const avKey = Deno.env.get("ALPHA_VANTAGE_API_KEY");
