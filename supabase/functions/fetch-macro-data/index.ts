@@ -531,6 +531,13 @@ function scoreNFCI(v: number): number {
   if (v <= 0.5) return -1;       // Tightening — bearish
   return -1;                     // Crisis-level tightening
 }
+// CAD/USD: rising DEXCAUS = CAD weakening = bearish; falling = CAD strengthening = bullish
+function scoreCADUSD(current: number, previous: number): number {
+  const changePct = previous > 0 ? ((current - previous) / previous) * 100 : 0;
+  if (changePct < -0.5) return 1;   // CAD strengthening
+  if (changePct > 0.5) return -1;   // CAD weakening
+  return 0;
+}
 function getSeasonLabel(): string {
   const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
   return months[new Date().getMonth()];
@@ -548,11 +555,12 @@ function computeComposite(signals: Record<string, number>): { score: number; reg
     (signals["dxy"] ?? 0) * 1 +
     (signals["oil"] ?? 0) * 1 +
     (signals["earnings"] ?? 0) * 1 +
+    (signals["cadusd"] ?? 0) * 1 +
     (signals["sentiment"] ?? 0) * 0.5 +
     (signals["seasonality"] ?? 0) * 0.5 +
     (signals["nfci"] ?? 0) * 2;
 
-  const totalPossible = 18;
+  const totalPossible = 19;
   const normalized = Math.max(-1, Math.min(1, weighted / totalPossible));
 
   let regime = "cash";
@@ -614,7 +622,7 @@ Deno.serve(async (req) => {
       fredVIX, fredCFNAI, fredSentiment, fredDXY,
       sp500Series, wilshire5000Series,
       insiderData, earningsData, fredNFCI,
-      yahooOil, capeData,
+      yahooOil, capeData, cadSeries,
     ] = await Promise.all([
       fetchFRED("T10Y2Y", fredKey).catch(() => null),
       fetchFRED("BAMLH0A0HYM2", fredKey).catch(() => null),
@@ -631,6 +639,7 @@ Deno.serve(async (req) => {
       fetchFRED("NFCI", fredKey).catch(() => null),
       fetchYahooOilPrice().catch(() => null),
       fetchShillerCAPE().catch(() => null),
+      fetchFREDSeries("DEXCAUS", fredKey, 5).catch(() => []),
     ]);
 
     // M2 YoY calculation
