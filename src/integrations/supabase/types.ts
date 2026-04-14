@@ -14,6 +14,30 @@ export type Database = {
   }
   public: {
     Tables: {
+      edgar_cache: {
+        Row: {
+          cache_key: string
+          created_at: string
+          data: Json
+          id: string
+          scraped_at: string
+        }
+        Insert: {
+          cache_key: string
+          created_at?: string
+          data: Json
+          id?: string
+          scraped_at?: string
+        }
+        Update: {
+          cache_key?: string
+          created_at?: string
+          data?: Json
+          id?: string
+          scraped_at?: string
+        }
+        Relationships: []
+      }
       macro_snapshots: {
         Row: {
           composite_score: number | null
