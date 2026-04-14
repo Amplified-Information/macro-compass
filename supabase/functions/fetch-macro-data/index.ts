@@ -5,6 +5,7 @@ const corsHeaders = {
 
 const AV_BASE = "https://www.alphavantage.co/query";
 const FRED_BASE = "https://api.stlouisfed.org/fred/series/observations";
+const YAHOO_CHART_BASE = "https://query1.finance.yahoo.com/v8/finance/chart";
 
 interface FREDResponse {
   observations?: Array<{ date: string; value: string }>;
@@ -67,7 +68,35 @@ async function fetchAVDaily(symbol: string, apiKey: string): Promise<number[]> {
     .filter((v) => !isNaN(v));
 }
 
-// ===================== SEC EDGAR FORM 4 INSIDER SCRAPER =====================
+// ===================== YAHOO FINANCE OIL PRICE =====================
+
+async function fetchYahooOilPrice(): Promise<{ value: number; asOf: string } | null> {
+  try {
+    const url = `${YAHOO_CHART_BASE}/CL=F`;
+    const res = await fetch(url, {
+      headers: { "User-Agent": "MacroDashboard/1.0" },
+    });
+    if (!res.ok) {
+      console.warn(`Yahoo Finance CL=F returned ${res.status}`);
+      return null;
+    }
+    const data = await res.json();
+    const meta = data?.chart?.result?.[0]?.meta;
+    if (!meta?.regularMarketPrice) return null;
+    const price = meta.regularMarketPrice;
+    // regularMarketTime is a unix timestamp
+    const marketTime = meta.regularMarketTime
+      ? new Date(meta.regularMarketTime * 1000).toISOString().slice(0, 10)
+      : new Date().toISOString().slice(0, 10);
+    console.log(`Yahoo Finance CL=F: $${price} as of ${marketTime}`);
+    return { value: price, asOf: marketTime };
+  } catch (e) {
+    console.warn("Yahoo Finance fetch failed:", e);
+    return null;
+  }
+}
+
+
 
 const SEC_HEADERS = {
   "User-Agent": "MacroDashboard/1.0 (macro-dashboard@lovable.app)",
@@ -557,6 +586,7 @@ Deno.serve(async (req) => {
       fredVIX, fredCFNAI, fredSentiment, fredDXY,
       sp500Series, wilshire5000Series,
       insiderData, earningsData, fredNFCI,
+      yahooOil,
     ] = await Promise.all([
       fetchFRED("T10Y2Y", fredKey).catch(() => null),
       fetchFRED("BAMLH0A0HYM2", fredKey).catch(() => null),
@@ -571,6 +601,7 @@ Deno.serve(async (req) => {
       fetchEdgarInsiderActivity().catch(() => null),
       fetchEdgarEarningsRevisions().catch(() => null),
       fetchFRED("NFCI", fredKey).catch(() => null),
+      fetchYahooOilPrice().catch(() => null),
     ]);
 
     // M2 YoY calculation
@@ -595,8 +626,19 @@ Deno.serve(async (req) => {
     const yieldAsOf = fredYieldSpread?.asOf ?? null;
     const creditSpreadVal = fredCreditSpread ? parseFloat(fredCreditSpread.value) : null;
     const creditAsOf = fredCreditSpread?.asOf ?? null;
-    const oilPrice = fredOil ? parseFloat(fredOil.value) : null;
-    const oilAsOf = fredOil?.asOf ?? null;
+    // Oil: prefer Yahoo Finance (near-real-time) over FRED (1-2 day lag)
+    let oilPrice: number | null = null;
+    let oilAsOf: string | null = null;
+    let oilSource = "FRED";
+    if (yahooOil) {
+      oilPrice = yahooOil.value;
+      oilAsOf = yahooOil.asOf;
+      oilSource = "Yahoo Finance";
+    } else if (fredOil) {
+      oilPrice = parseFloat(fredOil.value);
+      oilAsOf = fredOil.asOf;
+    }
+    console.log(`Oil: $${oilPrice} as of ${oilAsOf} (source: ${oilSource})`);
     const cfnaiValue = fredCFNAI ? parseFloat(fredCFNAI.value) : null;
     const cfnaiAsOf = fredCFNAI?.asOf ?? null;
     const sentimentValue = fredSentiment ? parseFloat(fredSentiment.value) : null;
