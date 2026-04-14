@@ -1,5 +1,6 @@
 import { MacroAPIResponse } from "@/hooks/useMacroData";
-
+import { useState } from "react";
+import { ChevronDown, ChevronUp, Info } from "lucide-react";
 interface InflationWidgetProps {
   data: MacroAPIResponse | null;
 }
