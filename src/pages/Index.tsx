@@ -108,6 +108,9 @@ export default function Index() {
         {/* Inflation Pass-Through Widget */}
         <InflationWidget data={isViewingHistory && currentSnapshot ? currentSnapshot.snapshot_data : (liveData ?? null)} />
 
+        {/* Alert Subscription */}
+        <AlertSubscription />
+
         {/* Signal groups */}
         {CATEGORIES.map((cat) => (
           <SignalGroup
