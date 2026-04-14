@@ -288,5 +288,5 @@ export function computeRegimeDimensions(signals: MacroSignal[]): RegimeDimension
   });
 }
 
-export const CAPE_VALUE = 33.2;
-export const CAPE_ELEVATED = CAPE_VALUE > 30;
+// CAPE defaults (used as fallback when API unavailable)
+export const CAPE_DEFAULT = 33.2;
