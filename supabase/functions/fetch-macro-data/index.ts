@@ -614,7 +614,7 @@ Deno.serve(async (req) => {
       fredVIX, fredCFNAI, fredSentiment, fredDXY,
       sp500Series, wilshire5000Series,
       insiderData, earningsData, fredNFCI,
-      yahooOil,
+      yahooOil, capeData,
     ] = await Promise.all([
       fetchFRED("T10Y2Y", fredKey).catch(() => null),
       fetchFRED("BAMLH0A0HYM2", fredKey).catch(() => null),
@@ -630,6 +630,7 @@ Deno.serve(async (req) => {
       fetchEdgarEarningsRevisions().catch(() => null),
       fetchFRED("NFCI", fredKey).catch(() => null),
       fetchYahooOilPrice().catch(() => null),
+      fetchShillerCAPE().catch(() => null),
     ]);
 
     // M2 YoY calculation
@@ -735,6 +736,7 @@ Deno.serve(async (req) => {
       insider: insiderData ? { ...insiderData, asOf: todayStr } : null,
       earnings: earningsData ? { ...earningsData, asOf: todayStr } : null,
       nfci: nfciValue !== null && !isNaN(nfciValue) ? { value: nfciValue, asOf: nfciAsOf } : null,
+      cape: capeData ? { value: capeData.value, asOf: capeData.asOf } : null,
       fetchedAt: new Date().toISOString(),
     };
 
