@@ -934,6 +934,41 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Process new signals
+    const joblessClaimsValue = fredJoblessClaims ? parseFloat(fredJoblessClaims.value) : null;
+    const joblessClaimsAsOf = fredJoblessClaims?.asOf ?? null;
+    const realYieldValue = fredRealYield ? parseFloat(fredRealYield.value) : null;
+    const realYieldAsOf = fredRealYield?.asOf ?? null;
+    const igSpreadVal = fredIGSpread ? parseFloat(fredIGSpread.value) : null;
+    const igSpreadAsOf = fredIGSpread?.asOf ?? null;
+    const dgs2Value = fredDGS2 ? parseFloat(fredDGS2.value) : null;
+    const dffValue = fredDFF ? parseFloat(fredDFF.value) : null;
+
+    // LEI MoM change
+    const leiObs = fredLEI as Array<{ date: string; value: string }>;
+    let leiData: { value: number; prevValue: number; momPct: number; score: number; asOf: string | null } | null = null;
+    if (Array.isArray(leiObs) && leiObs.length >= 2) {
+      const leiCurrent = parseFloat(leiObs[0].value);
+      const leiPrev = parseFloat(leiObs[1].value);
+      if (!isNaN(leiCurrent) && !isNaN(leiPrev) && leiPrev > 0) {
+        const momPct = ((leiCurrent - leiPrev) / leiPrev) * 100;
+        leiData = { value: leiCurrent, prevValue: leiPrev, momPct: Math.round(momPct * 100) / 100, score: scoreLEI(momPct), asOf: leiObs[0].date };
+      }
+    }
+
+    // Rate path: DGS2 - DFF spread
+    let ratePathData: { dgs2: number; dff: number; spread: number; score: number; asOf: string | null } | null = null;
+    if (dgs2Value !== null && !isNaN(dgs2Value) && dffValue !== null && !isNaN(dffValue)) {
+      const spread = dgs2Value - dffValue;
+      ratePathData = { dgs2: dgs2Value, dff: dffValue, spread: Math.round(spread * 100) / 100, score: scoreRatePath(spread), asOf: fredDGS2?.asOf ?? null };
+    }
+
+    console.log(`Jobless Claims: ${joblessClaimsValue}k as of ${joblessClaimsAsOf}`);
+    console.log(`Real Yield (TIPS): ${realYieldValue}% as of ${realYieldAsOf}`);
+    console.log(`LEI: ${leiData ? `${leiData.value} (MoM ${leiData.momPct}%)` : 'null'}`);
+    console.log(`IG Spreads: ${igSpreadVal} as of ${igSpreadAsOf}`);
+    console.log(`Rate Path: ${ratePathData ? `DGS2=${ratePathData.dgs2}, DFF=${ratePathData.dff}, spread=${ratePathData.spread}` : 'null'}`);
+
     const result = {
       vix: vixValue !== null && !isNaN(vixValue) ? { value: vixValue, asOf: vixAsOf } : null,
       yieldCurve: yieldSpread !== null && !isNaN(yieldSpread) ? { spread: yieldSpread, asOf: yieldAsOf } : null,
@@ -957,6 +992,12 @@ Deno.serve(async (req) => {
       cadusd: cadData,
       inflation: inflationData,
       cbLiquidity: cbLiquidity,
+      // New signals
+      joblessClaims: joblessClaimsValue !== null && !isNaN(joblessClaimsValue) ? { value: joblessClaimsValue, asOf: joblessClaimsAsOf } : null,
+      realYield: realYieldValue !== null && !isNaN(realYieldValue) ? { value: realYieldValue, asOf: realYieldAsOf } : null,
+      lei: leiData,
+      igSpread: igSpreadVal !== null && !isNaN(igSpreadVal) ? { value: igSpreadVal, bps: Math.round(igSpreadVal * 100), asOf: igSpreadAsOf } : null,
+      ratePath: ratePathData,
       fetchedAt: new Date().toISOString(),
     };
 
@@ -984,6 +1025,17 @@ Deno.serve(async (req) => {
     else signalScores["inflation"] = 0;
     if (cbLiquidity) signalScores["cb-liquidity"] = cbLiquidity.score;
     else signalScores["cb-liquidity"] = 0;
+    // New signals
+    if (result.joblessClaims) signalScores["jobless-claims"] = scoreJoblessClaims(result.joblessClaims.value / 1000);
+    else signalScores["jobless-claims"] = 0;
+    if (result.realYield) signalScores["real-yield"] = scoreRealYield(result.realYield.value);
+    else signalScores["real-yield"] = 0;
+    if (leiData) signalScores["lei"] = leiData.score;
+    else signalScores["lei"] = 0;
+    if (result.igSpread) signalScores["ig-spreads"] = scoreIGSpread(result.igSpread.bps);
+    else signalScores["ig-spreads"] = 0;
+    if (ratePathData) signalScores["rate-path"] = ratePathData.score;
+    else signalScores["rate-path"] = 0;
 
     const composite = computeComposite(signalScores);
 
