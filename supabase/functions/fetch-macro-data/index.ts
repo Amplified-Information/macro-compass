@@ -382,12 +382,19 @@ Deno.serve(async (req) => {
   }
 
   try {
-    // All fetches in parallel (EDGAR runs concurrently with FRED/AV)
+    // Initialize Supabase client for EDGAR cache reads
+    const { createClient } = await import("https://esm.sh/@supabase/supabase-js@2");
+    const supabaseClient = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+    );
+
+    // All fetches in parallel — EDGAR now reads from cache table instead of scraping live
     const [
       fredYieldSpread, fredCreditSpread, fredOil,
       fredVIX, fredCFNAI, fredSentiment, fredDXY,
       sp500Series, wilshire5000Series,
-      insiderData, earningsData, fredNFCI,
+      edgarCache, fredNFCI,
       yahooOil, capeData, cadSeries,
       breakevenSeries,
       fedBalanceSheet, bocAssets,
@@ -403,8 +410,7 @@ Deno.serve(async (req) => {
       fetchFREDSeries("DTWEXBGS", fredKey, 30).catch(() => []),
       fetchFREDSeries("SP500", fredKey, 60).catch(() => []),
       fetchFREDSeries("WILL5000PRFC", fredKey, 60).catch(() => []),
-      fetchEdgarInsiderActivity().catch(() => null),
-      fetchEdgarEarningsRevisions().catch(() => null),
+      readEdgarCache(supabaseClient),
       fetchFRED("NFCI", fredKey).catch(() => null),
       fetchYahooOilPrice().catch(() => null),
       fetchShillerCAPE().catch(() => null),
@@ -412,7 +418,6 @@ Deno.serve(async (req) => {
       fetchFREDSeries("T5YIFR", fredKey, 30).catch(() => []),
       fetchFREDSeries("WALCL", fredKey, 10).catch(() => []),
       fetchBoCTotalAssets().catch(() => null),
-      // New signals
       fetchFRED("ICSA", fredKey).catch(() => null),
       fetchFRED("DFII10", fredKey).catch(() => null),
       fetchFREDSeries("USSLIND", fredKey, 5).catch(() => []),
@@ -420,6 +425,9 @@ Deno.serve(async (req) => {
       fetchFRED("DGS2", fredKey).catch(() => null),
       fetchFRED("DFF", fredKey).catch(() => null),
     ]);
+
+    const insiderData = edgarCache.insider;
+    const earningsData = edgarCache.earnings;
 
     // M2 YoY calculation
     let m2YoY: number | null = null;
