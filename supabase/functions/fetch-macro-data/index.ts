@@ -155,372 +155,29 @@ async function fetchBoCTotalAssets(): Promise<Array<{ date: string; value: numbe
 
 
 
-const SEC_HEADERS = {
-  "User-Agent": "MacroDashboard/1.0 (macro-dashboard@lovable.app)",
-  "Accept-Encoding": "gzip, deflate",
-  "Accept": "application/json, application/xml, text/xml, */*",
-};
+// ===================== EDGAR CACHE READER =====================
 
-interface InsiderTransaction {
-  transactionCode: string; // P=Purchase, S=Sale, M=Exercise, G=Gift, A=Grant
-  shares: number;
-  pricePerShare: number;
-  totalValue: number;
-  acquiredOrDisposed: string; // A or D
-}
-
-interface InsiderResult {
-  totalPurchaseValue: number;
-  totalSaleValue: number;
-  purchaseCount: number;
-  saleCount: number;
-  buyRatio: number; // purchases / (purchases + sales) by value
-  filingsParsed: number;
-  score: number;
-  daysScanned: number;
-}
-
-async function sleep(ms: number) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-function parseForm4Xml(xml: string): InsiderTransaction[] {
-  const transactions: InsiderTransaction[] = [];
-
-  // Match both non-derivative and derivative transactions
-  // Non-derivative: <nonDerivativeTransaction>...</nonDerivativeTransaction>
-  // We parse transactionCode, shares, pricePerShare, acquiredOrDisposed
-  const txPatterns = [
-    /<nonDerivativeTransaction>([\s\S]*?)<\/nonDerivativeTransaction>/gi,
-    /<derivativeTransaction>([\s\S]*?)<\/derivativeTransaction>/gi,
-  ];
-
-  for (const pattern of txPatterns) {
-    let match;
-    while ((match = pattern.exec(xml)) !== null) {
-      const block = match[1];
-
-      // Transaction code
-      const codeMatch = block.match(/<transactionCode>(.*?)<\/transactionCode>/i);
-      const code = codeMatch?.[1]?.trim() ?? "";
-
-      // Only care about P (Purchase) and S (Sale)
-      if (code !== "P" && code !== "S") continue;
-
-      // Shares
-      const sharesMatch = block.match(
-        /<transactionShares>\s*<value>([\d.]+)<\/value>/i
-      );
-      const shares = sharesMatch ? parseFloat(sharesMatch[1]) : 0;
-
-      // Price per share
-      const priceMatch = block.match(
-        /<transactionPricePerShare>\s*<value>([\d.]+)<\/value>/i
-      );
-      const price = priceMatch ? parseFloat(priceMatch[1]) : 0;
-
-      // Acquired or Disposed
-      const adMatch = block.match(
-        /<acquiredDisposedCode>\s*<value>([AD])<\/value>/i
-      );
-      const ad = adMatch?.[1] ?? (code === "P" ? "A" : "D");
-
-      if (shares > 0) {
-        transactions.push({
-          transactionCode: code,
-          shares,
-          pricePerShare: price,
-          totalValue: shares * price,
-          acquiredOrDisposed: ad,
-        });
-      }
-    }
-  }
-
-  return transactions;
-}
-
-async function fetchEdgarInsiderActivity(): Promise<InsiderResult | null> {
+async function readEdgarCache(supabase: any): Promise<{ insider: any | null; earnings: any | null }> {
   try {
-    // Fetch Form 4 filings for the same large-cap CIK list used by earnings
-    console.log("EDGAR: Fetching Form 4 filings for large-cap CIKs...");
+    const { data } = await supabase
+      .from("edgar_cache")
+      .select("cache_key, data, scraped_at")
+      .in("cache_key", ["insider", "earnings"]);
 
-    let xmlUrls: string[] = [];
-
-    // Fetch recent filings index for each CIK in batches
-    for (let i = 0; i < LARGE_CAP_CIKS.length; i += 5) {
-      const batch = LARGE_CAP_CIKS.slice(i, i + 5);
-      const results = await Promise.all(
-        batch.map(async (cik) => {
-          try {
-            const url = `https://data.sec.gov/submissions/CIK${cik}.json`;
-            const res = await fetch(url, { headers: SEC_HEADERS });
-            if (!res.ok) { await res.text(); return []; }
-            const data = await res.json();
-            const recent = data?.filings?.recent;
-            if (!recent) return [];
-
-            const urls: string[] = [];
-            const thirtyDaysAgo = new Date();
-            thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-
-            for (let j = 0; j < (recent.form?.length ?? 0) && j < 50; j++) {
-              if (recent.form[j] !== "4") continue;
-              const filingDate = new Date(recent.filingDate[j]);
-              if (filingDate < thirtyDaysAgo) break;
-              const accession = recent.accessionNumber[j].replace(/-/g, "");
-              const doc = recent.primaryDocument[j];
-              if (doc) {
-                urls.push(`https://www.sec.gov/Archives/edgar/data/${parseInt(cik)}/${accession}/${doc}`);
-              }
-            }
-            return urls;
-          } catch {
-            return [];
-          }
-        })
-      );
-      xmlUrls.push(...results.flat());
-      if (i + 5 < LARGE_CAP_CIKS.length) await sleep(600);
-    }
-
-    console.log(`EDGAR: Found ${xmlUrls.length} Form 4 XML URLs from large-cap CIKs`);
-
-    if (xmlUrls.length === 0) {
-      return null;
-    }
-
-    // Step 2: Fetch and parse Form 4 XMLs in batches
-    const batchSize = 5;
-    let totalPurchaseValue = 0;
-    let totalSaleValue = 0;
-    let purchaseCount = 0;
-    let saleCount = 0;
-    let filingsParsed = 0;
-
-    for (let i = 0; i < xmlUrls.length; i += batchSize) {
-      const batch = xmlUrls.slice(i, i + batchSize);
-      const results = await Promise.all(
-        batch.map(async (url) => {
-          try {
-            const res = await fetch(url, { headers: SEC_HEADERS });
-            if (!res.ok) { await res.text(); return []; }
-            const xml = await res.text();
-            return parseForm4Xml(xml);
-          } catch {
-            return [];
-          }
-        })
-      );
-
-      for (const txs of results) {
-        if (txs.length > 0) filingsParsed++;
-        for (const tx of txs) {
-          if (tx.transactionCode === "P") {
-            totalPurchaseValue += tx.totalValue;
-            purchaseCount++;
-          } else if (tx.transactionCode === "S") {
-            totalSaleValue += tx.totalValue;
-            saleCount++;
-          }
-        }
+    let insider = null;
+    let earnings = null;
+    if (data) {
+      for (const row of data) {
+        if (row.cache_key === "insider") insider = { ...row.data, asOf: row.scraped_at?.slice(0, 10) };
+        if (row.cache_key === "earnings") earnings = { ...row.data, asOf: row.scraped_at?.slice(0, 10) };
       }
-
-      if (i + batchSize < xmlUrls.length) await sleep(600);
     }
-
-    const totalValue = totalPurchaseValue + totalSaleValue;
-    const buyRatio = totalValue > 0 ? totalPurchaseValue / totalValue : 0.5;
-
-    // Score: High buy ratio = insiders buying = bullish
-    // > 0.35 buy ratio is notable (normally insiders sell more than buy)
-    let score: number;
-    if (buyRatio > 0.35) score = 1;       // Unusual buying
-    else if (buyRatio >= 0.15) score = 0;  // Normal range
-    else score = -1;                       // Heavy selling
-
-    const result: InsiderResult = {
-      totalPurchaseValue: Math.round(totalPurchaseValue),
-      totalSaleValue: Math.round(totalSaleValue),
-      purchaseCount,
-      saleCount,
-      buyRatio: Math.round(buyRatio * 1000) / 1000,
-      filingsParsed,
-      score,
-      daysScanned: 30,
-    };
-
-    console.log(`EDGAR: Parsed ${filingsParsed} filings. Purchases: ${purchaseCount} ($${Math.round(totalPurchaseValue/1000)}k), Sales: ${saleCount} ($${Math.round(totalSaleValue/1000)}k), Buy ratio: ${buyRatio.toFixed(3)}, Score: ${score}`);
-
-    return result;
-  } catch (error) {
-    console.error("EDGAR scraper error:", error);
-    return null;
+    return { insider, earnings };
+  } catch (e) {
+    console.warn("Failed to read EDGAR cache:", e);
+    return { insider: null, earnings: null };
   }
 }
-
-function scoreInsider(buyRatio: number): number {
-  if (buyRatio > 0.35) return 1;
-  if (buyRatio >= 0.15) return 0;
-  return -1;
-}
-
-// ===================== EDGAR EARNINGS REVISIONS SCRAPER =====================
-
-// Large-cap CIKs for XBRL EPS trend analysis
-const LARGE_CAP_CIKS = [
-  "0000320193", // AAPL
-  "0000789019", // MSFT
-  "0001652044", // GOOG
-  "0001018724", // AMZN
-  "0001326801", // META
-  "0001045810", // NVDA
-  "0000078003", // PFE
-  "0000320187", // JNJ (actually J&J)
-  "0000732717", // UNH
-  "0000093410", // CVX
-  "0000034088", // XOM
-  "0000858877", // HD
-  "0000886982", // GS
-  "0000019617", // JPM
-  "0000070858", // BAC
-  "0000050863", // INTC
-  "0000004962", // AXP
-  "0000066740", // MMM
-  "0000018230", // CAT
-  "0000310158", // DIS
-];
-
-interface EarningsResult {
-  epsImprovingCount: number;
-  epsDecliningCount: number;
-  epsStableCount: number;
-  companiesAnalyzed: number;
-  recentEarnings8K: number;
-  improvingRatio: number;
-  score: number;
-}
-
-async function fetchXbrlEps(cik: string): Promise<{ recent: number; prior: number } | null> {
-  try {
-    const url = `https://data.sec.gov/api/xbrl/companyfacts/CIK${cik}.json`;
-    const res = await fetch(url, { headers: SEC_HEADERS });
-    if (!res.ok) { await res.text(); return null; }
-    const data = await res.json();
-
-    const epsFact = data?.facts?.["us-gaap"]?.EarningsPerShareDiluted;
-    if (!epsFact) return null;
-
-    const units = epsFact.units;
-    const entries: any[] = [];
-    for (const unitKey in units) {
-      entries.push(...units[unitKey]);
-    }
-
-    // Filter to quarterly filings (10-Q and 10-K with quarterly period)
-    // Get entries with unique end dates, preferring shorter durations (quarterly)
-    const quarterly = entries
-      .filter((e: any) => e.form === "10-Q" || e.form === "10-K")
-      .sort((a: any, b: any) => b.end.localeCompare(a.end));
-
-    // Deduplicate by end date, take shortest duration (most likely single quarter)
-    const seen = new Set<string>();
-    const unique: any[] = [];
-    for (const e of quarterly) {
-      if (!seen.has(e.end)) {
-        seen.add(e.end);
-        unique.push(e);
-      }
-    }
-
-    if (unique.length < 2) return null;
-
-    return {
-      recent: unique[0].val,
-      prior: unique[1].val,
-    };
-  } catch {
-    return null;
-  }
-}
-
-async function fetchEdgarEarningsRevisions(): Promise<EarningsResult | null> {
-  try {
-    // Part 1: XBRL EPS trends for large-caps
-    console.log("EDGAR Earnings: Fetching XBRL EPS for large-caps...");
-
-    let epsImproving = 0;
-    let epsDeclining = 0;
-    let epsStable = 0;
-    let companiesAnalyzed = 0;
-
-    // Fetch in batches of 5 to respect SEC rate limits
-    for (let i = 0; i < LARGE_CAP_CIKS.length; i += 5) {
-      const batch = LARGE_CAP_CIKS.slice(i, i + 5);
-      const results = await Promise.all(batch.map((cik) => fetchXbrlEps(cik)));
-
-      for (const r of results) {
-        if (r !== null) {
-          companiesAnalyzed++;
-          const changePct = r.prior !== 0 ? ((r.recent - r.prior) / Math.abs(r.prior)) * 100 : 0;
-          if (changePct > 5) epsImproving++;
-          else if (changePct < -5) epsDeclining++;
-          else epsStable++;
-        }
-      }
-
-      if (i + 5 < LARGE_CAP_CIKS.length) await sleep(600);
-    }
-
-    // Part 2: Count recent 8-K earnings announcements (Item 2.02)
-    let recent8KCount = 0;
-    try {
-      const endDate = new Date();
-      const startDate = new Date();
-      startDate.setDate(startDate.getDate() - 30);
-      const startStr = startDate.toISOString().slice(0, 10);
-      const endStr = endDate.toISOString().slice(0, 10);
-
-      const searchUrl = `https://efts.sec.gov/LATEST/search-index?q=%22Item+2.02%22&forms=8-K&dateRange=custom&startdt=${startStr}&enddt=${endStr}&from=0&size=1`;
-      const res = await fetch(searchUrl, { headers: SEC_HEADERS });
-      if (res.ok) {
-        const data = await res.json();
-        recent8KCount = data?.hits?.total?.value ?? 0;
-      } else {
-        await res.text();
-      }
-    } catch { /* ignore */ }
-
-    const total = epsImproving + epsDeclining + epsStable;
-    const improvingRatio = total > 0 ? epsImproving / total : 0.5;
-    const decliningRatio = total > 0 ? epsDeclining / total : 0.5;
-
-    // Score: net improving vs declining
-    let score: number;
-    if (improvingRatio > 0.5) score = 1;        // Most companies improving
-    else if (decliningRatio > 0.5) score = -1;   // Most companies declining
-    else score = 0;                               // Mixed
-
-    const result: EarningsResult = {
-      epsImprovingCount: epsImproving,
-      epsDecliningCount: epsDeclining,
-      epsStableCount: epsStable,
-      companiesAnalyzed,
-      recentEarnings8K: recent8KCount,
-      improvingRatio: Math.round(improvingRatio * 1000) / 1000,
-      score,
-    };
-
-    console.log(`EDGAR Earnings: ${companiesAnalyzed} companies analyzed. Improving: ${epsImproving}, Declining: ${epsDeclining}, Stable: ${epsStable}. Recent 8-Ks: ${recent8KCount}. Score: ${score}`);
-
-    return result;
-  } catch (error) {
-    console.error("EDGAR Earnings scraper error:", error);
-    return null;
-  }
-}
-
-// ===================== END EDGAR EARNINGS SCRAPER =====================
 
 // Scoring functions
 function scoreVIX(v: number) { return v < 15 ? 1 : v <= 25 ? 0 : -1; }
@@ -659,7 +316,7 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    const limit = Math.min(parseInt(reqUrl.searchParams.get("limit") ?? "90"), 365);
+    const limit = Math.min(parseInt(reqUrl.searchParams.get("limit") ?? "365"), 730);
     const { data, error } = await supabase
       .from("macro_snapshots")
       .select("id, snapshot_data, composite_score, regime, signals, created_at")
@@ -725,12 +382,19 @@ Deno.serve(async (req) => {
   }
 
   try {
-    // All fetches in parallel (EDGAR runs concurrently with FRED/AV)
+    // Initialize Supabase client for EDGAR cache reads
+    const { createClient } = await import("https://esm.sh/@supabase/supabase-js@2");
+    const supabaseClient = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+    );
+
+    // All fetches in parallel — EDGAR now reads from cache table instead of scraping live
     const [
       fredYieldSpread, fredCreditSpread, fredOil,
       fredVIX, fredCFNAI, fredSentiment, fredDXY,
       sp500Series, wilshire5000Series,
-      insiderData, earningsData, fredNFCI,
+      edgarCache, fredNFCI,
       yahooOil, capeData, cadSeries,
       breakevenSeries,
       fedBalanceSheet, bocAssets,
@@ -746,8 +410,7 @@ Deno.serve(async (req) => {
       fetchFREDSeries("DTWEXBGS", fredKey, 30).catch(() => []),
       fetchFREDSeries("SP500", fredKey, 60).catch(() => []),
       fetchFREDSeries("WILL5000PRFC", fredKey, 60).catch(() => []),
-      fetchEdgarInsiderActivity().catch(() => null),
-      fetchEdgarEarningsRevisions().catch(() => null),
+      readEdgarCache(supabaseClient),
       fetchFRED("NFCI", fredKey).catch(() => null),
       fetchYahooOilPrice().catch(() => null),
       fetchShillerCAPE().catch(() => null),
@@ -755,7 +418,6 @@ Deno.serve(async (req) => {
       fetchFREDSeries("T5YIFR", fredKey, 30).catch(() => []),
       fetchFREDSeries("WALCL", fredKey, 10).catch(() => []),
       fetchBoCTotalAssets().catch(() => null),
-      // New signals
       fetchFRED("ICSA", fredKey).catch(() => null),
       fetchFRED("DFII10", fredKey).catch(() => null),
       fetchFREDSeries("USSLIND", fredKey, 5).catch(() => []),
@@ -763,6 +425,9 @@ Deno.serve(async (req) => {
       fetchFRED("DGS2", fredKey).catch(() => null),
       fetchFRED("DFF", fredKey).catch(() => null),
     ]);
+
+    const insiderData = edgarCache.insider;
+    const earningsData = edgarCache.earnings;
 
     // M2 YoY calculation
     let m2YoY: number | null = null;
@@ -1092,18 +757,14 @@ Deno.serve(async (req) => {
       inflationScore: Math.round(inflationScoreAxis * 1000) / 1000,
     };
 
-    // Add regimeDetail to result
+    // Add regimeDetail and signalScores to response (canonical source of truth)
     (result as any).regimeDetail = regimeDetail;
+    (result as any).signalScores = signalScores;
 
-    // Save snapshot
+    // Save snapshot (reuse existing client)
     try {
-      const { createClient } = await import("https://esm.sh/@supabase/supabase-js@2");
-      const supabase = createClient(
-        Deno.env.get("SUPABASE_URL")!,
-        Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-      );
 
-      await supabase.from("macro_snapshots").insert({
+      await supabaseClient.from("macro_snapshots").insert({
         snapshot_data: result,
         composite_score: parseFloat(composite.score.toFixed(4)),
         regime: composite.regime,
