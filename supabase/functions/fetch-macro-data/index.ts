@@ -575,6 +575,7 @@ Deno.serve(async (req) => {
 
     // M2 YoY calculation
     let m2YoY: number | null = null;
+    let m2AsOf: string | null = null;
     try {
       const m2Obs = await fetchFREDSeries("WM2NS", fredKey, 60);
       if (m2Obs.length >= 52) {
@@ -582,6 +583,7 @@ Deno.serve(async (req) => {
         const yearAgo = parseFloat(m2Obs[51].value);
         if (!isNaN(current) && !isNaN(yearAgo) && yearAgo > 0) {
           m2YoY = ((current - yearAgo) / yearAgo) * 100;
+          m2AsOf = m2Obs[0].date;
         }
       }
     } catch { /* ignore */ }
