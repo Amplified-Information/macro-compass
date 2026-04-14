@@ -202,8 +202,9 @@ function applySnapshotSignals(signals: MacroSignal[], snapshotSignals: Record<st
 
 export function useMacroData() {
   const [selectedSnapshotIdx, setSelectedSnapshotIdx] = useState<number | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
-  const { data: liveData, isLoading, error } = useQuery<MacroAPIResponse>({
+  const { data: liveData, isLoading, error, refetch } = useQuery<MacroAPIResponse>({
     queryKey: ["macro-data"],
     queryFn: async () => {
       const { data, error } = await supabase.functions.invoke("fetch-macro-data");
@@ -213,6 +214,20 @@ export function useMacroData() {
     staleTime: 5 * 60 * 1000,
     retry: 1,
   });
+
+  const refreshLive = async () => {
+    setIsRefreshing(true);
+    try {
+      const url = import.meta.env.VITE_SUPABASE_URL;
+      const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      await fetch(`${url}/functions/v1/fetch-macro-data?refresh=true`, {
+        headers: { "Authorization": `Bearer ${key}`, "apikey": key },
+      });
+      await refetch();
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
 
   const { data: historyData } = useQuery<{ snapshots: MacroSnapshot[] }>({
     queryKey: ["macro-history"],
