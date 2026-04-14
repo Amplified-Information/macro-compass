@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { MacroSignal, SignalCategory } from "@/lib/macroSignals";
 import { MacroSnapshot } from "@/hooks/useMacroData";
 import { SignalCard } from "./SignalCard";
@@ -45,12 +46,8 @@ export function SignalGroup({ category, signals, snapshots }: { category: Signal
       </div>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         {signals.map((signal) => {
-          // Build score history from snapshots (oldest first)
-          const history = snapshots && snapshots.length > 0
-            ? [...snapshots].reverse().map((snap) => snap.signals?.[signal.id] ?? 0)
-            : undefined;
           return (
-            <SignalCard key={signal.id} signal={signal} scoreHistory={history} />
+            <SignalCard key={signal.id} signal={signal} scoreHistory={dailySnapshots ? dailySnapshots.map((snap) => snap.signals?.[signal.id] ?? 0) : undefined} />
           );
         })}
       </div>
