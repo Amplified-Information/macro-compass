@@ -380,11 +380,10 @@ export interface RegimeDimension {
 
 const REGIME_DIMENSION_MAP: { label: string; signalIds: string[]; tooltip: string }[] = [
   { label: "Macro Momentum", signalIds: ["yield-curve", "pmi", "earnings", "lei", "jobless-claims"], tooltip: "Yield Curve, CFNAI, EPS Trends, LEI & Jobless Claims — tracks the direction and strength of the economic cycle." },
-  { label: "Volatility", signalIds: ["vix"], tooltip: "VIX — measures expected market volatility. Low vol = complacency / risk-on; high vol = fear / risk-off." },
-  { label: "Trend", signalIds: ["breadth", "seasonality"], tooltip: "Market Breadth & Seasonality — gauges how broad and persistent the current trend is." },
-  { label: "Liquidity", signalIds: ["m2", "nfci", "credit-spreads", "ig-spreads", "cb-liquidity"], tooltip: "M2 Money Supply, NFCI, HY & IG Credit Spreads, CB Balance Sheets — measures the availability and cost of capital in the financial system." },
-  { label: "Rates / Dollar", signalIds: ["dxy", "oil", "cadusd", "real-yield", "rate-path"], tooltip: "Dollar Index, Oil, CAD/USD, 10-yr Real Yield & Rate Path — tracks monetary tightening pressure, discount rates, and rate expectations." },
-  { label: "Inflation", signalIds: ["inflation"], tooltip: "5y5y Breakeven + Oil Pass-Through — tracks whether oil price momentum is translating into inflation expectations, a leading headwind for equities." },
+  { label: "Risk Appetite", signalIds: ["vix", "breadth", "insider", "sentiment", "seasonality"], tooltip: "VIX, Market Breadth, Insider Activity, Consumer Sentiment & Seasonality — measures market stress and positioning." },
+  { label: "Liquidity", signalIds: ["m2", "nfci", "credit-spreads", "ig-spreads", "cb-liquidity"], tooltip: "M2 Money Supply, NFCI, HY & IG Credit Spreads, CB Balance Sheets — measures the availability and cost of capital." },
+  { label: "Rates / Dollar", signalIds: ["dxy", "cadusd", "real-yield", "rate-path"], tooltip: "Dollar Index, CAD/USD, 10-yr Real Yield & Rate Path — tracks monetary tightening pressure and rate expectations." },
+  { label: "Inflation", signalIds: ["inflation", "oil", "real-yield", "rate-path", "dxy"], tooltip: "Breakeven Inflation, Oil Momentum, Real Yield, Rate Path & DXY — tracks price pressure from multiple angles." },
 ];
 
 export function computeRegimeDimensions(signals: MacroSignal[]): RegimeDimension[] {
