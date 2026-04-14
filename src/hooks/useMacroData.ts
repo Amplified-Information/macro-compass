@@ -47,6 +47,7 @@ export interface MacroAPIResponse {
   lei: { value: number; prevValue: number; momPct: number; score: number; asOf?: string | null } | null;
   igSpread: { value: number; bps: number; asOf?: string | null } | null;
   ratePath: { dgs2: number; dff: number; spread: number; score: number; asOf?: string | null } | null;
+  signalScores?: Record<string, number>;
   fetchedAt: string;
 }
 
