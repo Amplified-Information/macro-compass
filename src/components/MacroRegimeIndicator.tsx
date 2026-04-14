@@ -188,6 +188,8 @@ export function detectRegimeDetail(signals: MacroSignal[]): RegimeDetail {
     { id: "insider", weight: 0.5 },
     { id: "lei", weight: 1.5 },
     { id: "jobless-claims", weight: 1.5 },
+    { id: "vix", weight: 1.5 },        // Real-time risk — elevated VIX signals growth stress
+    { id: "nfci", weight: 1 },          // Financial conditions tightening = growth headwind
   ];
 
   let growthWeightedSum = 0;
