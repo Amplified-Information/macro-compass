@@ -260,6 +260,20 @@ export function getMockSignals(): MacroSignal[] {
       source: "FRED (NFCI)",
       tooltip: "Chicago Fed National Financial Conditions Index — a composite of 105 measures of credit, leverage, and risk. Negative values indicate loose conditions; positive values signal tightening or stress.",
     },
+    {
+      id: "cadusd",
+      name: "CAD/USD",
+      category: "coincident",
+      weight: 1,
+      score: 0,
+      value: "1.3600",
+      description: "Canadian Dollar stable vs USD. No strong directional move.",
+      bullishCondition: "CAD strengthening (> 0.5%)",
+      neutralCondition: "Stable (±0.5%)",
+      bearishCondition: "CAD weakening (> 0.5%)",
+      source: "FRED (DEXCAUS)",
+      tooltip: "Canada/US exchange rate (CAD per 1 USD). Canada is a major commodity exporter and US trading partner. CAD strength signals global risk appetite and commodity demand; weakness signals risk-off.",
+    },
   ];
 }
 
@@ -275,7 +289,7 @@ const REGIME_DIMENSION_MAP: { label: string; signalIds: string[]; tooltip: strin
   { label: "Volatility", signalIds: ["vix"], tooltip: "VIX — measures expected market volatility. Low vol = complacency / risk-on; high vol = fear / risk-off." },
   { label: "Trend", signalIds: ["breadth", "seasonality"], tooltip: "Market Breadth & Seasonality — gauges how broad and persistent the current trend is." },
   { label: "Liquidity", signalIds: ["m2", "nfci", "credit-spreads"], tooltip: "M2 Money Supply, NFCI & Credit Spreads — measures the availability and cost of capital in the financial system." },
-  { label: "Rates / Dollar", signalIds: ["dxy", "oil"], tooltip: "Dollar Index & Oil — tracks monetary tightening pressure and input cost headwinds." },
+  { label: "Rates / Dollar", signalIds: ["dxy", "oil", "cadusd"], tooltip: "Dollar Index, Oil & CAD/USD — tracks monetary tightening pressure, input cost headwinds, and commodity-currency risk appetite." },
 ];
 
 export function computeRegimeDimensions(signals: MacroSignal[]): RegimeDimension[] {
