@@ -91,6 +91,7 @@ export default function Index() {
             key={cat}
             category={cat}
             signals={signals.filter((s) => s.category === cat)}
+            snapshots={snapshots}
           />
         ))}
       </main>
