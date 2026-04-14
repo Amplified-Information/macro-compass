@@ -60,6 +60,7 @@ export interface MacroSnapshot {
   created_at: string;
 }
 
+// Fallback scoring functions — used only when server doesn't provide signalScores
 function scoreVIX(v: number): SignalScore { return v < 15 ? 1 : v <= 25 ? 0 : -1; }
 function scoreYieldCurve(spread: number): SignalScore { return spread > 0.2 ? 1 : spread >= -0.1 ? 0 : -1; }
 function scoreCreditSpread(bps: number): SignalScore { return bps < 350 ? 1 : bps <= 500 ? 0 : -1; }
@@ -117,6 +118,34 @@ function scoreRatePath(spread: number): SignalScore {
   if (spread < -0.25) return 1;
   if (spread <= 0.25) return 0;
   return -1;
+}
+
+/** Derive a fallback score for a signal from raw data. Used only when server signalScores are unavailable. */
+function fallbackScore(id: string, data: MacroAPIResponse): SignalScore | null {
+  switch (id) {
+    case "vix": return data.vix ? scoreVIX(data.vix.value) : null;
+    case "yield-curve": return data.yieldCurve ? scoreYieldCurve(data.yieldCurve.spread) : null;
+    case "credit-spreads": return data.creditSpread ? scoreCreditSpread(data.creditSpread.bps) : null;
+    case "m2": return data.m2 ? scoreM2(data.m2.yoyPercent) : null;
+    case "oil": return data.oil ? scoreOil(data.oil.value, data.oil.changePercent ?? 0) : null;
+    case "pmi": return data.pmi ? scoreCFNAI(data.pmi.value) : null;
+    case "dxy": return data.dxy ? scoreDXY(data.dxy.changePercent) : null;
+    case "nfci": return data.nfci ? scoreNFCI(data.nfci.value) : null;
+    case "cadusd": return data.cadusd ? scoreCADUSD(data.cadusd.changePercent) : null;
+    case "inflation": return data.inflation ? scoreInflation(data.inflation.breakeven, data.inflation.breakevenPrev, data.inflation.oilMomentum13w) : null;
+    case "sentiment": return data.sentiment ? scoreSentiment(data.sentiment.value) : null;
+    case "cb-liquidity": return data.cbLiquidity ? scoreCBLiquidity(data.cbLiquidity.combinedWoWPct) : null;
+    case "insider": return data.insider ? (data.insider.score as SignalScore) : null;
+    case "earnings": return data.earnings ? (data.earnings.score as SignalScore) : null;
+    case "seasonality": return data.seasonality ? (data.seasonality.score as SignalScore) : null;
+    case "breadth": return data.breadth ? (data.breadth.score as SignalScore) : null;
+    case "jobless-claims": return data.joblessClaims ? scoreJoblessClaims(data.joblessClaims.value / 1000) : null;
+    case "real-yield": return data.realYield ? scoreRealYield(data.realYield.value) : null;
+    case "lei": return data.lei ? (data.lei.score as SignalScore) : null;
+    case "ig-spreads": return data.igSpread ? scoreIGSpread(data.igSpread.bps) : null;
+    case "rate-path": return data.ratePath ? (data.ratePath.score as SignalScore) : null;
+    default: return null;
+  }
 }
 
 export function applyLiveData(signals: MacroSignal[], data: MacroAPIResponse): MacroSignal[] {
