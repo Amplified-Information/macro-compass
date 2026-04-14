@@ -1,5 +1,6 @@
 import { MacroSignal, SignalScore } from "@/lib/macroSignals";
 import { TrendingUp, Minus, TrendingDown, Info } from "lucide-react";
+import { SignalSparkline } from "./SignalSparkline";
 import {
   Tooltip,
   TooltipContent,
@@ -30,7 +31,7 @@ function ThresholdPill({ score }: { score: SignalScore }) {
   );
 }
 
-export function SignalCard({ signal }: { signal: MacroSignal }) {
+export function SignalCard({ signal, scoreHistory }: { signal: MacroSignal; scoreHistory?: number[] }) {
   const config = scoreConfig[signal.score];
   const Icon = config.icon;
 
@@ -63,8 +64,13 @@ export function SignalCard({ signal }: { signal: MacroSignal }) {
           </div>
         </div>
       </div>
-      <div className={`text-xl font-mono font-bold ${config.colorClass}`}>
-        {signal.value}
+      <div className="flex items-end justify-between gap-3">
+        <div className={`text-xl font-mono font-bold ${config.colorClass}`}>
+          {signal.value}
+        </div>
+        {scoreHistory && scoreHistory.length >= 2 && (
+          <SignalSparkline scores={scoreHistory} />
+        )}
       </div>
 
       <ThresholdPill score={signal.score} />
