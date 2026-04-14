@@ -12,6 +12,7 @@ import { InflationWidget } from "@/components/InflationWidget";
 import { RegimeSignals } from "@/components/RegimeSignals";
 import { MacroRegimeIndicator } from "@/components/MacroRegimeIndicator";
 import { TimeSlider } from "@/components/TimeSlider";
+import { AlertSubscription } from "@/components/AlertSubscription";
 import { Wifi, WifiOff, RefreshCw } from "lucide-react";
 import logo from "@/assets/logo.png";
 
@@ -106,6 +107,9 @@ export default function Index() {
 
         {/* Inflation Pass-Through Widget */}
         <InflationWidget data={isViewingHistory && currentSnapshot ? currentSnapshot.snapshot_data : (liveData ?? null)} />
+
+        {/* Alert Subscription */}
+        <AlertSubscription />
 
         {/* Signal groups */}
         {CATEGORIES.map((cat) => (

@@ -14,6 +14,63 @@ export type Database = {
   }
   public: {
     Tables: {
+      alert_history: {
+        Row: {
+          alert_type: string
+          created_at: string
+          details: Json
+          id: string
+          subscribers_notified: number
+        }
+        Insert: {
+          alert_type: string
+          created_at?: string
+          details?: Json
+          id?: string
+          subscribers_notified?: number
+        }
+        Update: {
+          alert_type?: string
+          created_at?: string
+          details?: Json
+          id?: string
+          subscribers_notified?: number
+        }
+        Relationships: []
+      }
+      alert_subscribers: {
+        Row: {
+          active: boolean
+          alert_regime_change: boolean
+          alert_signal_flips: boolean
+          created_at: string
+          email: string
+          id: string
+          updated_at: string
+          webhook_url: string | null
+        }
+        Insert: {
+          active?: boolean
+          alert_regime_change?: boolean
+          alert_signal_flips?: boolean
+          created_at?: string
+          email: string
+          id?: string
+          updated_at?: string
+          webhook_url?: string | null
+        }
+        Update: {
+          active?: boolean
+          alert_regime_change?: boolean
+          alert_signal_flips?: boolean
+          created_at?: string
+          email?: string
+          id?: string
+          updated_at?: string
+          webhook_url?: string | null
+        }
+        Relationships: []
+      }
       edgar_cache: {
         Row: {
           cache_key: string
