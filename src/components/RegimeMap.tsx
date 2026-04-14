@@ -134,7 +134,7 @@ export function RegimeMap({ result, signals }: { result: CompositeResult; signal
       <div>
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-lg font-semibold text-foreground">Regime Map</h2>
+            <h2 className="text-lg font-semibold text-foreground">Portfolio Response</h2>
             <p className="text-sm text-muted-foreground mt-1">
               Composite score mapped to macro, volatility, trend, liquidity & rate regimes
             </p>
