@@ -213,51 +213,49 @@ function parseForm4Xml(xml: string): InsiderTransaction[] {
 
 async function fetchEdgarInsiderActivity(): Promise<InsiderResult | null> {
   try {
-    // Step 1: Query EDGAR EFTS full-text search for recent Form 4 filings
-    const endDate = new Date();
-    const startDate = new Date();
-    startDate.setDate(startDate.getDate() - 30);
-
-    const startStr = startDate.toISOString().slice(0, 10);
-    const endStr = endDate.toISOString().slice(0, 10);
-
-    const searchUrl = `https://efts.sec.gov/LATEST/search-index?q=&forms=4&dateRange=custom&startdt=${startStr}&enddt=${endStr}&from=0&size=40`;
-
-    console.log("EDGAR: Fetching recent Form 4 index...");
-    const searchRes = await fetch(searchUrl, { headers: SEC_HEADERS });
+    // Fetch Form 4 filings for the same large-cap CIK list used by earnings
+    console.log("EDGAR: Fetching Form 4 filings for large-cap CIKs...");
 
     let xmlUrls: string[] = [];
 
-    if (searchRes.ok) {
-      const searchData = await searchRes.json();
-      if (searchData.hits?.hits) {
-        xmlUrls = searchData.hits.hits
-          .map((h: any) => {
-            // _id format: "accession-number:filename.xml"
-            // _source.adsh: "0001452301-26-000008"
-            const adsh = h._source?.adsh;
-            const idParts = h._id?.split(":");
-            const filename = idParts?.[1];
-            if (adsh && filename) {
-              const adshPath = adsh.replace(/-/g, "");
-              // CIK from the first entry
-              const ciks = h._source?.ciks;
-              const cik = ciks?.[0];
-              if (cik) {
-                return `https://www.sec.gov/Archives/edgar/data/${parseInt(cik)}/${adshPath}/${filename}`;
+    // Fetch recent filings index for each CIK in batches
+    for (let i = 0; i < LARGE_CAP_CIKS.length; i += 5) {
+      const batch = LARGE_CAP_CIKS.slice(i, i + 5);
+      const results = await Promise.all(
+        batch.map(async (cik) => {
+          try {
+            const url = `https://data.sec.gov/submissions/CIK${cik}.json`;
+            const res = await fetch(url, { headers: SEC_HEADERS });
+            if (!res.ok) { await res.text(); return []; }
+            const data = await res.json();
+            const recent = data?.filings?.recent;
+            if (!recent) return [];
+
+            const urls: string[] = [];
+            const thirtyDaysAgo = new Date();
+            thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+            for (let j = 0; j < (recent.form?.length ?? 0) && j < 50; j++) {
+              if (recent.form[j] !== "4") continue;
+              const filingDate = new Date(recent.filingDate[j]);
+              if (filingDate < thirtyDaysAgo) break;
+              const accession = recent.accessionNumber[j].replace(/-/g, "");
+              const doc = recent.primaryDocument[j];
+              if (doc) {
+                urls.push(`https://www.sec.gov/Archives/edgar/data/${parseInt(cik)}/${accession}/${doc}`);
               }
             }
-            return null;
-          })
-          .filter(Boolean)
-          .slice(0, 30);
-      }
-    } else {
-      const errText = await searchRes.text();
-      console.log("EDGAR: EFTS error:", searchRes.status, errText.substring(0, 200));
+            return urls;
+          } catch {
+            return [];
+          }
+        })
+      );
+      xmlUrls.push(...results.flat());
+      if (i + 5 < LARGE_CAP_CIKS.length) await sleep(600);
     }
 
-    console.log(`EDGAR: Found ${xmlUrls.length} XML URLs to fetch`);
+    console.log(`EDGAR: Found ${xmlUrls.length} Form 4 XML URLs from large-cap CIKs`);
 
     if (xmlUrls.length === 0) {
       return null;
