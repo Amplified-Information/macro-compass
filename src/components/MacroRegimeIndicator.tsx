@@ -161,6 +161,9 @@ function generateNarrative(
   const credit = byId["credit-spreads"];
   if (credit && credit.score === 1) drivers.push("credit spreads still tight");
   else if (credit && credit.score === -1) drivers.push("credit spreads widening");
+  const vix = byId["vix"];
+  if (vix && vix.score === -1) drivers.push("VIX elevated — stress in real-time");
+  else if (vix && vix.score === 1) drivers.push("VIX calm");
 
   if (drivers.length > 0) {
     narrative += ` ${drivers.join(", ")}.`;
