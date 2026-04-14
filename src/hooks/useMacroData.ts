@@ -340,7 +340,7 @@ export function useMacroData() {
       const url = import.meta.env.VITE_SUPABASE_URL;
       const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
-      const res = await fetch(`${url}/functions/v1/fetch-macro-data?action=history&limit=90`, {
+      const res = await fetch(`${url}/functions/v1/fetch-macro-data?action=history&limit=365`, {
         headers: {
           "Authorization": `Bearer ${key}`,
           "apikey": key,
