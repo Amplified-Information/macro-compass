@@ -191,8 +191,14 @@ export function detectRegimeDetail(signals: MacroSignal[]): RegimeDetail {
     { id: "insider", weight: 0.5 },
     { id: "lei", weight: 1.5 },
     { id: "jobless-claims", weight: 1.5 },
-    { id: "vix", weight: 1.5 },        // Real-time risk — elevated VIX signals growth stress
-    { id: "nfci", weight: 1 },          // Financial conditions tightening = growth headwind
+    { id: "vix", weight: 1.5 },          // Real-time risk
+    { id: "nfci", weight: 1 },           // Financial conditions
+    { id: "m2", weight: 1 },             // Liquidity → growth fuel
+    { id: "cb-liquidity", weight: 1 },   // Central bank liquidity → growth support
+    { id: "ig-spreads", weight: 1 },     // IG credit stress → early growth warning
+    { id: "cadusd", weight: 0.5 },       // Commodity/risk demand proxy
+    { id: "sentiment", weight: 0.5 },    // Consumer demand signal (contrarian)
+    { id: "seasonality", weight: 0.25 }, // Calendar effect — low weight
   ];
 
   let growthWeightedSum = 0;
