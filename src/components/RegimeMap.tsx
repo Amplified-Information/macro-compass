@@ -124,6 +124,7 @@ function RegimeTag({ label, active }: { label: string; active?: boolean }) {
 }
 
 export function RegimeMap({ result, signals }: { result: CompositeResult; signals: MacroSignal[] }) {
+  const [expanded, setExpanded] = useState(false);
   const activeIdx = REGIMES.findIndex(
     (r) => result.finalScore >= r.scoreRange[0] && result.finalScore <= r.scoreRange[1]
   );
@@ -131,10 +132,51 @@ export function RegimeMap({ result, signals }: { result: CompositeResult; signal
   return (
     <div className="rounded-lg border bg-card p-6 space-y-6">
       <div>
-        <h2 className="text-lg font-semibold text-foreground">Regime Map</h2>
-        <p className="text-sm text-muted-foreground mt-1">
-          Composite score mapped to macro, volatility, trend, liquidity & rate regimes
-        </p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-lg font-semibold text-foreground">Regime Map</h2>
+            <p className="text-sm text-muted-foreground mt-1">
+              Composite score mapped to macro, volatility, trend, liquidity & rate regimes
+            </p>
+          </div>
+          <button
+            onClick={() => setExpanded(!expanded)}
+            className="text-muted-foreground hover:text-foreground transition-colors p-1"
+            aria-label="Toggle explainer"
+          >
+            <ChevronDown className={`h-4 w-4 transition-transform duration-200 ${expanded ? "rotate-180" : ""}`} />
+          </button>
+        </div>
+        <div className={`overflow-hidden transition-all duration-300 ${expanded ? "max-h-[500px] mt-3" : "max-h-0"}`}>
+          <div className="border-t border-border/30 pt-3 space-y-2 text-xs text-muted-foreground">
+            <p>
+              <span className="font-semibold text-foreground">What is the Regime Map?</span>{" "}
+              The regime map translates the composite macro score (−1 to +1) into one of six market regimes, 
+              each describing the overall environment across five dimensions: macro momentum, volatility, trend, 
+              liquidity, and rates/dollar.
+            </p>
+            <p>
+              <span className="font-semibold text-foreground">How is the score calculated?</span>{" "}
+              Each of the 13 macro signals is scored as bullish (+1), neutral (0), or bearish (−1), then 
+              weighted by importance. High-impact signals like yield curve, credit spreads, breadth, and 
+              liquidity carry 2× weight; moderate signals carry 1×; sentiment and seasonality carry 0.5×. 
+              The weighted sum is normalized to a −1 to +1 range.
+            </p>
+            <p>
+              <span className="font-semibold text-foreground">How to read the spectrum bar?</span>{" "}
+              The vertical marker shows where the current score falls. The highlighted regime card below 
+              describes the current environment and suggests positioning. Inactive regime cards show 
+              what other environments look like for reference.
+            </p>
+            <p>
+              <span className="font-semibold text-foreground">What does the radar chart show?</span>{" "}
+              The five-axis radar groups signals into independent dimensions — Macro Momentum (Yield Curve, CFNAI, 
+              Earnings), Volatility (VIX), Trend (Breadth, Seasonality), Liquidity (M2, NFCI, Credit Spreads), 
+              and Rates/Dollar (DXY, Oil). This reveals which dimensions are strong vs weak, even when the 
+              overall score looks neutral.
+            </p>
+          </div>
+        </div>
       </div>
 
       {/* Spectrum bar */}
