@@ -8,6 +8,7 @@ import { CapeDampener } from "@/components/CapeDampener";
 import { RegimeMap } from "@/components/RegimeMap";
 import { CategoryRadar } from "@/components/CategoryRadar";
 import { DeploymentSparkline } from "@/components/DeploymentSparkline";
+import { InflationWidget } from "@/components/InflationWidget";
 import { TimeSlider } from "@/components/TimeSlider";
 import { Wifi, WifiOff, RefreshCw } from "lucide-react";
 import logo from "@/assets/logo.png";
@@ -20,6 +21,7 @@ export default function Index() {
     snapshots, selectedSnapshotIdx, setSelectedSnapshotIdx, isViewingHistory,
     capeValue, capeElevated, capeAsOf,
     refreshLive, isRefreshing,
+    liveData,
   } = useMacroData();
 
   return (
@@ -93,6 +95,9 @@ export default function Index() {
 
         {/* Regime Map */}
         <RegimeMap result={result} signals={signals} />
+
+        {/* Inflation Pass-Through Widget */}
+        <InflationWidget data={liveData ?? null} />
 
         {/* Signal groups */}
         {CATEGORIES.map((cat) => (
