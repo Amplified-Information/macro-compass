@@ -49,7 +49,7 @@ export default function Index() {
             </div>
             <div className="text-xs text-muted-foreground font-mono">
               {fetchedAt
-                ? new Date(fetchedAt).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })
+                ? `Data fetched: ${new Date(fetchedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })} ${new Date(fetchedAt).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}`
                 : new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
             </div>
           </div>
