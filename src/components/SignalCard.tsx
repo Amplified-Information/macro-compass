@@ -75,7 +75,7 @@ export function SignalCard({ signal, scoreHistory }: { signal: MacroSignal; scor
         )}
       </div>
 
-      <ThresholdPill score={signal.score} />
+      <ThresholdPill score={quantized} />
 
       <p className="text-xs text-muted-foreground leading-relaxed">{signal.description}</p>
 
@@ -89,13 +89,13 @@ export function SignalCard({ signal, scoreHistory }: { signal: MacroSignal; scor
       </div>
 
       <div className="grid grid-cols-3 gap-1 text-[10px] font-mono">
-        <div className={`rounded px-1.5 py-1 text-center ${signal.score === 1 ? "bg-signal-bullish/10 text-signal-bullish border border-signal-bullish/30" : "bg-secondary text-muted-foreground"}`}>
+        <div className={`rounded px-1.5 py-1 text-center ${quantized === 1 ? "bg-signal-bullish/10 text-signal-bullish border border-signal-bullish/30" : "bg-secondary text-muted-foreground"}`}>
           +1 {signal.bullishCondition}
         </div>
-        <div className={`rounded px-1.5 py-1 text-center ${signal.score === 0 ? "bg-signal-neutral/10 text-signal-neutral border border-signal-neutral/30" : "bg-secondary text-muted-foreground"}`}>
+        <div className={`rounded px-1.5 py-1 text-center ${quantized === 0 ? "bg-signal-neutral/10 text-signal-neutral border border-signal-neutral/30" : "bg-secondary text-muted-foreground"}`}>
           0 {signal.neutralCondition}
         </div>
-        <div className={`rounded px-1.5 py-1 text-center ${signal.score === -1 ? "bg-signal-bearish/10 text-signal-bearish border border-signal-bearish/30" : "bg-secondary text-muted-foreground"}`}>
+        <div className={`rounded px-1.5 py-1 text-center ${quantized === -1 ? "bg-signal-bearish/10 text-signal-bearish border border-signal-bearish/30" : "bg-secondary text-muted-foreground"}`}>
           -1 {signal.bearishCondition}
         </div>
       </div>
