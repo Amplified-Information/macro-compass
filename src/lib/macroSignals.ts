@@ -204,17 +204,17 @@ export function getMockSignals(): MacroSignal[] {
     },
     {
       id: "earnings",
-      name: "Earnings Revisions",
+      name: "EPS Trends",
       category: "coincident",
       weight: 1,
       score: 1,
       value: "+2.1% net",
-      description: "Analysts broadly upgrading forward estimates. Corporate health improving.",
-      bullishCondition: "Net upgrades",
+      description: "Large-cap EPS mostly improving quarter-over-quarter.",
+      bullishCondition: "> 50% improving",
       neutralCondition: "Mixed",
-      bearishCondition: "Net downgrades",
-      source: "SEC EDGAR",
-      tooltip: "Net earnings revision ratio from SEC 10-Q/10-K filings. Positive revisions indicate improving corporate fundamentals and analyst confidence.",
+      bearishCondition: "> 50% declining",
+      source: "SEC EDGAR (XBRL)",
+      tooltip: "Tracks diluted EPS quarter-over-quarter changes across 20 large-cap companies via SEC XBRL filings. Majority improving = bullish earnings momentum; majority declining = bearish.",
     },
 
     // Sentiment (0.5x weight)
