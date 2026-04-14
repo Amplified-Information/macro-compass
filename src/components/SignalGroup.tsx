@@ -15,6 +15,17 @@ export function SignalGroup({ category, signals, snapshots }: { category: Signal
   const maxScore = signals.length;
   const normalizedGroup = maxScore > 0 ? groupScore / maxScore : 0;
 
+  // Deduplicate snapshots to one per day (latest per day), limit to 30 days, oldest first
+  const dailySnapshots = useMemo(() => {
+    if (!snapshots || snapshots.length === 0) return null;
+    const byDay = new Map<string, MacroSnapshot>();
+    for (const snap of snapshots) {
+      const day = snap.created_at.slice(0, 10);
+      if (!byDay.has(day)) byDay.set(day, snap); // snapshots are newest-first, so first seen = latest
+    }
+    return [...byDay.values()].reverse().slice(-30);
+  }, [snapshots]);
+
   return (
     <div className={`space-y-4 border-l-4 pl-4 ${meta.borderColor}`}>
       <div className="flex items-baseline justify-between">
