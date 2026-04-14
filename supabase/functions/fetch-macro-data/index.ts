@@ -726,6 +726,18 @@ Deno.serve(async (req) => {
     const seasonLabel = getSeasonLabel();
     const todayStr = new Date().toISOString().slice(0, 10);
 
+    // CAD/USD
+    const cadObs = cadSeries as Array<{ date: string; value: string }>;
+    let cadData: { value: number; changePercent: number; asOf: string | null } | null = null;
+    if (Array.isArray(cadObs) && cadObs.length >= 2) {
+      const cadCurrent = parseFloat(cadObs[0].value);
+      const cadPrevious = parseFloat(cadObs[1].value);
+      if (!isNaN(cadCurrent) && !isNaN(cadPrevious) && cadPrevious > 0) {
+        const changePct = ((cadCurrent - cadPrevious) / cadPrevious) * 100;
+        cadData = { value: cadCurrent, changePercent: Math.round(changePct * 100) / 100, asOf: cadObs[0].date };
+      }
+    }
+
     const result = {
       vix: vixValue !== null && !isNaN(vixValue) ? { value: vixValue, asOf: vixAsOf } : null,
       yieldCurve: yieldSpread !== null && !isNaN(yieldSpread) ? { spread: yieldSpread, asOf: yieldAsOf } : null,
@@ -746,6 +758,7 @@ Deno.serve(async (req) => {
       earnings: earningsData ? { ...earningsData, asOf: todayStr } : null,
       nfci: nfciValue !== null && !isNaN(nfciValue) ? { value: nfciValue, asOf: nfciAsOf } : null,
       cape: capeData ? { value: capeData.value, asOf: capeData.asOf } : null,
+      cadusd: cadData,
       fetchedAt: new Date().toISOString(),
     };
 
@@ -767,6 +780,8 @@ Deno.serve(async (req) => {
     signalScores["seasonality"] = seasonScore;
     if (nfciValue !== null && !isNaN(nfciValue)) signalScores["nfci"] = scoreNFCI(nfciValue);
     else signalScores["nfci"] = 0;
+    if (cadData) signalScores["cadusd"] = scoreCADUSD(cadData.value, cadData.value / (1 + cadData.changePercent / 100));
+    else signalScores["cadusd"] = 0;
 
     const composite = computeComposite(signalScores);
 
