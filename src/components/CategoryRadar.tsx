@@ -1,5 +1,7 @@
 import { MacroSignal, SignalCategory } from "@/lib/macroSignals";
 import { RadarChart, PolarGrid, PolarAngleAxis, Radar, ResponsiveContainer } from "recharts";
+import { Info } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface Props {
   signals: MacroSignal[];
@@ -30,9 +32,26 @@ export function CategoryRadar({ signals }: Props) {
 
   return (
     <div className="rounded-lg border bg-card p-6 space-y-3">
-      <div>
-        <h2 className="text-sm font-semibold text-foreground">Signal Balance</h2>
-        <p className="text-xs text-muted-foreground">Category sub-scores (center = bearish, outer = bullish)</p>
+      <div className="flex items-start gap-2">
+        <div className="flex-1">
+          <h2 className="text-sm font-semibold text-foreground">Signal Balance</h2>
+          <p className="text-xs text-muted-foreground">Category sub-scores (center = bearish, outer = bullish)</p>
+        </div>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Info className="h-4 w-4 text-muted-foreground cursor-help shrink-0 mt-0.5" />
+          </TooltipTrigger>
+          <TooltipContent side="left" className="max-w-xs text-xs leading-relaxed space-y-2">
+            <p className="font-semibold">How to read this chart</p>
+            <p>Each axis shows the average score of signals in that category. The multiplier (2×, 1×, 0.5×) reflects the weight each category carries in the composite score.</p>
+            <ul className="list-disc pl-3 space-y-1">
+              <li><span className="text-signal-bullish font-medium">Leading (2×)</span> — forward-looking indicators like yield curve, ISM, building permits</li>
+              <li><span className="text-signal-coincident font-medium">Coincident (1×)</span> — real-time measures like employment, industrial production</li>
+              <li><span className="text-signal-bearish font-medium">Sentiment (0.5×)</span> — survey-based gauges like consumer confidence, VIX</li>
+            </ul>
+            <p>A balanced triangle means all categories agree. A skewed shape highlights divergence — e.g. leading indicators turning while sentiment lags.</p>
+          </TooltipContent>
+        </Tooltip>
       </div>
       <ResponsiveContainer width="100%" height={180}>
         <RadarChart data={data} cx="50%" cy="50%" outerRadius="70%">
