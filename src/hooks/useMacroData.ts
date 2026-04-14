@@ -25,19 +25,19 @@ export interface EarningsAPIData {
 }
 
 export interface MacroAPIResponse {
-  vix: { value: number } | null;
-  oil: { value: number } | null;
-  yieldCurve: { spread: number } | null;
-  creditSpread: { value: number; bps: number } | null;
-  m2: { yoyPercent: number } | null;
-  dxy: { value: number; previousValue: number | null; changePercent: number } | null;
-  pmi: { value: number } | null;
-  sentiment: { value: number } | null;
-  seasonality: { month: string; score: number } | null;
-  breadth: { sp500Return: number; djiaReturn: number; spread: number; score: number } | null;
-  insider: InsiderAPIData | null;
-  earnings: EarningsAPIData | null;
-  nfci: { value: number } | null;
+  vix: { value: number; asOf?: string | null } | null;
+  oil: { value: number; asOf?: string | null } | null;
+  yieldCurve: { spread: number; asOf?: string | null } | null;
+  creditSpread: { value: number; bps: number; asOf?: string | null } | null;
+  m2: { yoyPercent: number; asOf?: string | null } | null;
+  dxy: { value: number; previousValue: number | null; changePercent: number; asOf?: string | null } | null;
+  pmi: { value: number; asOf?: string | null } | null;
+  sentiment: { value: number; asOf?: string | null } | null;
+  seasonality: { month: string; score: number; asOf?: string | null } | null;
+  breadth: { sp500Return: number; djiaReturn: number; spread: number; score: number; asOf?: string | null } | null;
+  insider: (InsiderAPIData & { asOf?: string | null }) | null;
+  earnings: (EarningsAPIData & { asOf?: string | null }) | null;
+  nfci: { value: number; asOf?: string | null } | null;
   fetchedAt: string;
 }
 
