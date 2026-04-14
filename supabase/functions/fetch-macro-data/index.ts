@@ -498,7 +498,16 @@ function scoreVIX(v: number) { return v < 15 ? 1 : v <= 25 ? 0 : -1; }
 function scoreYieldCurve(s: number) { return s > 0.2 ? 1 : s >= -0.1 ? 0 : -1; }
 function scoreCreditSpread(bps: number) { return bps < 350 ? 1 : bps <= 500 ? 0 : -1; }
 function scoreM2(yoy: number) { return yoy > 2 ? 1 : yoy >= -1 ? 0 : -1; }
-function scoreOil(v: number) { return v < 85 ? 1 : v <= 100 ? 0 : -1; }
+function scoreOil(v: number, changePct: number) {
+  // Level-based: extreme prices are bearish regardless of momentum
+  if (v > 100) return -1;
+  // Momentum-based: rapid run-up is a leading bearish signal
+  if (changePct > 15) return -1;
+  if (changePct > 8) return 0;
+  // Moderate/falling prices with no run-up = bullish
+  if (v < 85 && changePct < 8) return 1;
+  return 0;
+}
 // CFNAI: > 0 = above-trend growth, < -0.7 = recession territory
 function scoreCFNAI(v: number) { return v > 0 ? 1 : v >= -0.7 ? 0 : -1; }
 function scoreSentiment(v: number) {
@@ -551,14 +560,14 @@ function computeComposite(signals: Record<string, number>): { score: number; reg
     (signals["vix"] ?? 0) * 1 +
     (signals["pmi"] ?? 0) * 1 +
     (signals["dxy"] ?? 0) * 1 +
-    (signals["oil"] ?? 0) * 1 +
+    (signals["oil"] ?? 0) * 2 +
     (signals["earnings"] ?? 0) * 1 +
     (signals["cadusd"] ?? 0) * 1 +
     (signals["sentiment"] ?? 0) * 0.5 +
     (signals["seasonality"] ?? 0) * 0.5 +
     (signals["nfci"] ?? 0) * 2;
 
-  const totalPossible = 19;
+  const totalPossible = 20;
   const normalized = Math.max(-1, Math.min(1, weighted / totalPossible));
 
   let regime = "cash";
@@ -661,7 +670,7 @@ Deno.serve(async (req) => {
     ] = await Promise.all([
       fetchFRED("T10Y2Y", fredKey).catch(() => null),
       fetchFRED("BAMLH0A0HYM2", fredKey).catch(() => null),
-      fetchFRED("DCOILWTICO", fredKey).catch(() => null),
+      fetchFREDSeries("DCOILWTICO", fredKey, 40).catch(() => []),
       fetchFRED("VIXCLS", fredKey).catch(() => null),
       fetchFRED("CFNAI", fredKey).catch((e) => { console.error("CFNAI fetch error:", e); return null; }),
       fetchFRED("UMCSENT", fredKey).catch(() => null),
@@ -699,19 +708,36 @@ Deno.serve(async (req) => {
     const yieldAsOf = fredYieldSpread?.asOf ?? null;
     const creditSpreadVal = fredCreditSpread ? parseFloat(fredCreditSpread.value) : null;
     const creditAsOf = fredCreditSpread?.asOf ?? null;
-    // Oil: prefer Yahoo Finance (near-real-time) over FRED (1-2 day lag)
+    // Oil: prefer Yahoo Finance (near-real-time) over FRED series (1-2 day lag)
     let oilPrice: number | null = null;
+    let oilPrevious: number | null = null;
+    let oilChangePct = 0;
     let oilAsOf: string | null = null;
     let oilSource = "FRED";
+    const oilObs = fredOil as Array<{ date: string; value: string }>;
     if (yahooOil) {
       oilPrice = yahooOil.value;
       oilAsOf = yahooOil.asOf;
       oilSource = "Yahoo Finance";
-    } else if (fredOil) {
-      oilPrice = parseFloat(fredOil.value);
-      oilAsOf = fredOil.asOf;
+      // Use FRED series for 30-day-ago baseline
+      if (Array.isArray(oilObs) && oilObs.length > 20) {
+        const baseline = parseFloat(oilObs[20]?.value ?? oilObs[oilObs.length - 1]?.value);
+        if (!isNaN(baseline) && baseline > 0) {
+          oilPrevious = baseline;
+          oilChangePct = ((oilPrice - baseline) / baseline) * 100;
+        }
+      }
+    } else if (Array.isArray(oilObs) && oilObs.length >= 2) {
+      oilPrice = parseFloat(oilObs[0].value);
+      oilAsOf = oilObs[0].date;
+      const baseline = oilObs.length > 20 ? parseFloat(oilObs[20].value) : parseFloat(oilObs[oilObs.length - 1].value);
+      if (!isNaN(baseline) && baseline > 0) {
+        oilPrevious = baseline;
+        oilChangePct = ((oilPrice - baseline) / baseline) * 100;
+      }
     }
-    console.log(`Oil: $${oilPrice} as of ${oilAsOf} (source: ${oilSource})`);
+    oilChangePct = Math.round(oilChangePct * 100) / 100;
+    console.log(`Oil: $${oilPrice} (30d chg: ${oilChangePct}%) as of ${oilAsOf} (source: ${oilSource})`);
     const cfnaiValue = fredCFNAI ? parseFloat(fredCFNAI.value) : null;
     const cfnaiAsOf = fredCFNAI?.asOf ?? null;
     const sentimentValue = fredSentiment ? parseFloat(fredSentiment.value) : null;
@@ -778,7 +804,7 @@ Deno.serve(async (req) => {
       yieldCurve: yieldSpread !== null && !isNaN(yieldSpread) ? { spread: yieldSpread, asOf: yieldAsOf } : null,
       creditSpread: creditSpreadVal !== null && !isNaN(creditSpreadVal) ? { value: creditSpreadVal, bps: Math.round(creditSpreadVal * 100), asOf: creditAsOf } : null,
       m2: m2YoY !== null ? { yoyPercent: m2YoY, asOf: m2AsOf } : null,
-      oil: oilPrice !== null && !isNaN(oilPrice) ? { value: oilPrice, asOf: oilAsOf, source: oilSource } : null,
+      oil: oilPrice !== null && !isNaN(oilPrice) ? { value: oilPrice, previousValue: oilPrevious, changePercent: oilChangePct, asOf: oilAsOf, source: oilSource } : null,
       dxy: dxyCurrent !== null && !isNaN(dxyCurrent) ? {
         value: dxyCurrent,
         previousValue: dxyPrevious,
@@ -807,7 +833,7 @@ Deno.serve(async (req) => {
     if (result.yieldCurve) signalScores["yield-curve"] = scoreYieldCurve(result.yieldCurve.spread);
     if (result.creditSpread) signalScores["credit-spreads"] = scoreCreditSpread(result.creditSpread.bps);
     if (result.m2) signalScores["m2"] = scoreM2(result.m2.yoyPercent);
-    if (result.oil) signalScores["oil"] = scoreOil(result.oil.value);
+    if (result.oil) signalScores["oil"] = scoreOil(result.oil.value, result.oil.changePercent);
     if (result.dxy && dxyCurrent && dxyPrevious) signalScores["dxy"] = scoreDXY(dxyCurrent, dxyPrevious);
     if (result.pmi) signalScores["pmi"] = scoreCFNAI(result.pmi.value);
     if (result.sentiment) signalScores["sentiment"] = scoreSentiment(result.sentiment.value);
